@@ -42,36 +42,36 @@
 **Interfaces:**
 - Produces: `npm run test` (unit, coverage gate), `npm run test:sit`, `npm run lint`, `npm run build`, `npm run start:api`, `npm run start:worker`, `make up|down|logs|migrate|test|sit`.
 
-- [ ] **Step 1: `git init`, branch `feat/phase1-platform`, commit current state as baseline**
+- [x] **Step 1: `git init`, branch `feat/phase1-platform`, commit current state as baseline**
 
 ```bash
 git init -b main && git add -A && git commit -m "chore: baseline before phase 1" && git checkout -b feat/phase1-platform
 ```
 
-- [ ] **Step 2: Install dependencies**
+- [x] **Step 2: Install dependencies**
 
 ```bash
 npm i @nestjs/swagger@^11 @nestjs/bullmq@^11 bullmq ioredis pino pino-http nest-pino @prisma/client@^6 opossum class-validator class-transformer helmet uuid
 npm i -D prisma@^6 nock @types/opossum @types/uuid pino-pretty
 ```
 
-- [ ] **Step 3: Move jest config to `jest.config.ts` with coverage thresholds from Global Constraints; `jest.sit.config.ts` with `testRegex: 'test/sit/.*\\.sit\\.ts$'`, `testTimeout: 60000`, no coverage**
+- [x] **Step 3: Move jest config to `jest.config.ts` with coverage thresholds from Global Constraints; `jest.sit.config.ts` with `testRegex: 'test/sit/.*\\.sit\\.ts$'`, `testTimeout: 60000`, no coverage**
 
-- [ ] **Step 4: Write `docker-compose.yml`**
+- [x] **Step 4: Write `docker-compose.yml`**
 
 Services and host ports: `postgres` (16-alpine, 5432, db `wmc_pms`, user/pass `wmc/wmc`, healthcheck `pg_isready`), `redis` (7-alpine, 6379), `minio` (9000/9001, root `minio/minio123`, bucket `pms-documents` created by a `minio-init` one-shot using `mc`), `wiremock` (`wiremock/wiremock:3`, 8080, `./tools/wiremock:/home/wiremock`, args `--global-response-templating`), `mailpit` (8025 UI / 1025 SMTP), `api` and `worker` (build from `Dockerfile`, `profiles: [app]`, env from `.env`, depend on healthy postgres/redis).
 
-- [ ] **Step 5: Write `Dockerfile` (multi-stage: `node:22-alpine` build with `npm ci && npx prisma generate && npm run build`; runtime `node:22-alpine` with `dist`, `node_modules` pruned to prod, `CMD ["node","dist/app/main.js"]`; worker overrides command)**
+- [x] **Step 5: Write `Dockerfile` (multi-stage: `node:22-alpine` build with `npm ci && npx prisma generate && npm run build`; runtime `node:22-alpine` with `dist`, `node_modules` pruned to prod, `CMD ["node","dist/app/main.js"]`; worker overrides command)**
 
-- [ ] **Step 6: Write `Makefile` targets: `up` (`docker compose up -d postgres redis minio minio-init wiremock mailpit`), `down`, `logs`, `migrate` (`npx prisma migrate deploy`), `test`, `sit` (`make up && npm run test:sit`), `app-up` (`docker compose --profile app up --build`)**
+- [x] **Step 6: Write `Makefile` targets: `up` (`docker compose up -d postgres redis minio minio-init wiremock mailpit`), `down`, `logs`, `migrate` (`npx prisma migrate deploy`), `test`, `sit` (`make up && npm run test:sit`), `app-up` (`docker compose --profile app up --build`)**
 
-- [ ] **Step 7: Delete the files listed above; update `package.json` scripts: `start:api: nest start --entryFile app/main`, `start:worker: nest start --entryFile app/worker`, `start:dev: nest start --watch --entryFile app/main`, `test: jest --config jest.config.ts`, `test:sit: jest --config jest.sit.config.ts --runInBand`, `prisma:generate`, `prisma:migrate`**
+- [x] **Step 7: Delete the files listed above; update `package.json` scripts: `start:api: nest start --entryFile app/main`, `start:worker: nest start --entryFile app/worker`, `start:dev: nest start --watch --entryFile app/main`, `test: jest --config jest.config.ts`, `test:sit: jest --config jest.sit.config.ts --runInBand`, `prisma:generate`, `prisma:migrate`**
 
-- [ ] **Step 8: Write `.env.example` with every variable Tasks 2–13 read (listed in Task 2)**
+- [x] **Step 8: Write `.env.example` with every variable Tasks 2–13 read (listed in Task 2)**
 
-- [ ] **Step 9: Verify: `make up` brings all infra healthy; `docker compose ps` shows 5 running services; `curl -s localhost:8080/__admin/health` returns healthy**
+- [x] **Step 9: Verify: `make up` brings all infra healthy; `docker compose ps` shows 5 running services; `curl -s localhost:8080/__admin/health` returns healthy**
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add -A && git commit -m "chore: restructure repo, add docker infra, jest configs and tooling"
@@ -90,11 +90,11 @@ git add -A && git commit -m "chore: restructure repo, add docker infra, jest con
 - Produces: `ConfigModule` (global) and `registerAs` namespaces: `appConfig` `{ env: 'local'|'test'|'production', port: number, serviceName: string, logLevel: string, internalServiceToken: string }`; `databaseConfig` `{ url: string }`; `redisConfig` `{ url: string }`; `storageConfig` `{ endpoint, accessKey, secretKey, bucket, region }`; `authConfig` `{ sessionTtlSeconds: number, preAuthTtlSeconds: number, otpTtlSeconds: 300, otpResendAfterSeconds: 30, otpMaxAttempts: 5 }`; `cryptoConfig` `{ fieldKeyId: string, fieldKeyBase64: string, fingerprintKeyBase64: string, otpHmacKeyBase64: string }`; `partnersConfig` `{ digio: { baseUrl, clientId, clientSecret, timeoutMs, webhookSecret }, trackwizz: { baseUrl, apiToken, cluster: 'CL1_User', domain, sourceSystemName, ourPrivateKeyPem, theirPublicKeyPem, timeoutMs }, mfcentral: { baseUrl, clientId, clientSecret, username, password, encryptionKey, privateJwk, timeoutMs }, clevertap: { baseUrl, accountId, passcode, enabled: boolean }, messaging: { smtpHost, smtpPort, from } }`.
 - `validateEnv(raw: Record<string, unknown>): ValidatedEnv` throws listing every missing/invalid variable at once.
 
-- [ ] **Step 1: Write failing tests** in `env.validation.spec.ts`: `rejects when DATABASE_URL missing (message names it)`, `applies defaults (PORT 3000, OTP_TTL_SECONDS 300)`, `rejects non-base64 FIELD_ENCRYPTION_KEY`, `collects all errors in one throw`.
-- [ ] **Step 2: Run `npx jest src/common/config` → FAIL (module not found)**
-- [ ] **Step 3: Implement `env.validation.ts` with class-validator on an `EnvSchema` class; implement the `registerAs` namespaces reading from the validated env; `ConfigModule.forRoot({ isGlobal: true, validate: validateEnv, load: [...] })`**
-- [ ] **Step 4: Run tests → PASS**
-- [ ] **Step 5: Commit** `feat(config): typed, validated configuration namespaces`
+- [x] **Step 1: Write failing tests** in `env.validation.spec.ts`: `rejects when DATABASE_URL missing (message names it)`, `applies defaults (PORT 3000, OTP_TTL_SECONDS 300)`, `rejects non-base64 FIELD_ENCRYPTION_KEY`, `collects all errors in one throw`.
+- [x] **Step 2: Run `npx jest src/common/config` → FAIL (module not found)**
+- [x] **Step 3: Implement `env.validation.ts` with class-validator on an `EnvSchema` class; implement the `registerAs` namespaces reading from the validated env; `ConfigModule.forRoot({ isGlobal: true, validate: validateEnv, load: [...] })`**
+- [x] **Step 4: Run tests → PASS**
+- [x] **Step 5: Commit** `feat(config): typed, validated configuration namespaces`
 
 ---
 
@@ -109,11 +109,11 @@ git add -A && git commit -m "chore: restructure repo, add docker infra, jest con
 - `ErrorCode` string union in `error-codes.ts` with the customer-safe default message per code (spec wording: `RATE_LIMITED` → "Please try again after the cooldown.", `OTP_INVALID_OR_EXPIRED` → "The code is invalid or expired. Request a new code if needed.", `ACTION_REQUIRED` → "Complete the required information to continue.", `STALE_VERSION` → "Your application has changed. Review the latest details.", `VERIFICATION_UNAVAILABLE` → "Verification is temporarily unavailable. Your progress is saved.").
 - `ErrorEnvelopeFilter implements ExceptionFilter` (global): maps `AppError`, Nest `HttpException` (incl. class-validator 400 → 422 `ACTION_REQUIRED`), and unknown errors (500, generic message, logged with stack) to the envelope; `request_id` = correlation id from Task 4's store.
 
-- [ ] **Step 1: Write failing tests**: `AppError carries code/status/retryable`; filter: `maps StaleVersionError to 409 envelope`, `maps unknown Error to 500 with generic message and no stack in body`, `maps class-validator BadRequestException to 422 ACTION_REQUIRED`, `request_id equals correlation id`.
-- [ ] **Step 2: Run → FAIL**
-- [ ] **Step 3: Implement**
-- [ ] **Step 4: Run → PASS**
-- [ ] **Step 5: Commit** `feat(errors): AppError hierarchy and spec error envelope filter`
+- [x] **Step 1: Write failing tests**: `AppError carries code/status/retryable`; filter: `maps StaleVersionError to 409 envelope`, `maps unknown Error to 500 with generic message and no stack in body`, `maps class-validator BadRequestException to 422 ACTION_REQUIRED`, `request_id equals correlation id`.
+- [x] **Step 2: Run → FAIL**
+- [x] **Step 3: Implement**
+- [x] **Step 4: Run → PASS**
+- [x] **Step 5: Commit** `feat(errors): AppError hierarchy and spec error envelope filter`
 
 ---
 
@@ -126,11 +126,11 @@ git add -A && git commit -m "chore: restructure repo, add docker infra, jest con
 **Interfaces:**
 - Produces: `interface CorrelationContext { correlationId: string; requestId: string; principalId?: string; reviewerId?: string }`; `class CorrelationStore { run<T>(ctx: CorrelationContext, fn: () => T): T; get(): CorrelationContext | undefined; getCorrelationId(): string /* 'none' when outside a context */; set(patch: Partial<CorrelationContext>): void }` (singleton over `AsyncLocalStorage`); `CORRELATION_HEADER = 'X-Correlation-ID'`, `REQUEST_ID_HEADER = 'X-Request-ID'`; `isValidCorrelationId(v: unknown): v is string`; `CorrelationMiddleware` (Nest `NestMiddleware`) reads headers, generates UUID when invalid/missing, sets response header, runs `next()` inside `store.run`; `@Correlation()` param decorator returning the context.
 
-- [ ] **Step 1: Write failing tests**: store `get() inside run returns ctx and undefined outside`, `nested async calls see the same id`; middleware `uses X-Correlation-ID when valid`, `falls back to X-Request-ID`, `generates UUID v4 when absent`, `replaces id longer than 128 chars or containing control bytes` (Review Focus 1), `sets X-Correlation-ID response header`.
-- [ ] **Step 2: Run → FAIL**
-- [ ] **Step 3: Implement**
-- [ ] **Step 4: Run → PASS**
-- [ ] **Step 5: Commit** `feat(correlation): AsyncLocalStorage context and middleware`
+- [x] **Step 1: Write failing tests**: store `get() inside run returns ctx and undefined outside`, `nested async calls see the same id`; middleware `uses X-Correlation-ID when valid`, `falls back to X-Request-ID`, `generates UUID v4 when absent`, `replaces id longer than 128 chars or containing control bytes` (Review Focus 1), `sets X-Correlation-ID response header`.
+- [x] **Step 2: Run → FAIL**
+- [x] **Step 3: Implement**
+- [x] **Step 4: Run → PASS**
+- [x] **Step 5: Commit** `feat(correlation): AsyncLocalStorage context and middleware`
 
 ---
 
@@ -144,11 +144,11 @@ git add -A && git commit -m "chore: restructure repo, add docker infra, jest con
 - Produces: `class AppLogger implements LoggerService { constructor(store: CorrelationStore, cfg: appConfig); child(module: string): AppLogger; debug|info|warn|error(msg: string, fields?: Record<string, unknown>): void }` writing pino JSON with fields `correlationId, requestId, principalId, module, ...fields`; `redact(value: unknown, keys?: ReadonlySet<string>): unknown` deep-copies replacing any key in `REDACTED_KEYS` (case-insensitive) with `'[REDACTED]'`, handling arrays, `Error` instances (keeps `name`, redacted `message` if it contains `key=value` of a sensitive key, `stack` kept, `cause` recursed) and circular refs; `RequestLoggingInterceptor` logs `http.request` with `method, route (template), status, durationMs` only.
 - Nest bootstrap uses `app.useLogger(app.get(AppLogger))`.
 
-- [ ] **Step 1: Write failing tests**: redaction `redacts nested pan_no and Authorization`, `redacts inside arrays`, `redacts Error.cause object fields` (Review Focus 2), `survives circular references`; logger `includes correlationId from store`, `child sets module`; interceptor `logs route template not raw path, with status and duration`.
-- [ ] **Step 2: Run → FAIL**
-- [ ] **Step 3: Implement (pino `redact` option plus the custom deep redactor for `fields`)**
-- [ ] **Step 4: Run → PASS**
-- [ ] **Step 5: Commit** `feat(logging): pino logger with correlation and redaction`
+- [x] **Step 1: Write failing tests**: redaction `redacts nested pan_no and Authorization`, `redacts inside arrays`, `redacts Error.cause object fields` (Review Focus 2), `survives circular references`; logger `includes correlationId from store`, `child sets module`; interceptor `logs route template not raw path, with status and duration`.
+- [x] **Step 2: Run → FAIL**
+- [x] **Step 3: Implement (pino `redact` option plus the custom deep redactor for `fields`)**
+- [x] **Step 4: Run → PASS**
+- [x] **Step 5: Commit** `feat(logging): pino logger with correlation and redaction`
 
 ---
 
@@ -161,11 +161,11 @@ git add -A && git commit -m "chore: restructure repo, add docker infra, jest con
 **Interfaces:**
 - Produces: `class FieldCipher { encrypt(plaintext: string): EncryptedField; decrypt(f: EncryptedField): string }` with `interface EncryptedField { keyId: string; iv: Buffer; tag: Buffer; ciphertext: Buffer }` and `serialize(f): Buffer` / `deserialize(b: Buffer): EncryptedField` (layout: 1-byte keyId length, keyId, 12-byte IV, 16-byte tag, ciphertext); AES-256-GCM with key from `cryptoConfig.fieldKeyBase64`. `class Fingerprint { of(value: string, purpose: 'phone'|'email'|'pan'|'account'|'otp'): string /* hex HMAC-SHA256 of normalized value with purpose as domain separator */ }`; `constantTimeEquals(a: string, b: string): boolean`.
 
-- [ ] **Step 1: Write failing tests**: `round-trips unicode`, `different IV per call`, `tampered tag fails`, `wrong keyId rejected`, `serialize/deserialize round-trip`; fingerprint `deterministic`, `purpose separates`, `normalizes case/whitespace for email and pan`; `constantTimeEquals false on length mismatch`.
-- [ ] **Step 2: Run → FAIL**
-- [ ] **Step 3: Implement with `node:crypto`**
-- [ ] **Step 4: Run → PASS**
-- [ ] **Step 5: Commit** `feat(crypto): AES-GCM field cipher, HMAC fingerprints`
+- [x] **Step 1: Write failing tests**: `round-trips unicode`, `different IV per call`, `tampered tag fails`, `wrong keyId rejected`, `serialize/deserialize round-trip`; fingerprint `deterministic`, `purpose separates`, `normalizes case/whitespace for email and pan`; `constantTimeEquals false on length mismatch`.
+- [x] **Step 2: Run → FAIL**
+- [x] **Step 3: Implement with `node:crypto`**
+- [x] **Step 4: Run → PASS**
+- [x] **Step 5: Commit** `feat(crypto): AES-GCM field cipher, HMAC fingerprints`
 
 ---
 
@@ -193,11 +193,11 @@ interface RetryPolicy { attempts: number; backoffMs: number; retryOn?: (e: Partn
 ```
 - Behaviour: adds `X-Correlation-ID` (from store) and, when `vendorReferenceHeader` is set, that header with the same value; default timeout from `partnersConfig[partner].timeoutMs`; retries only when `retry` given and `retryOn` (default: transport or 5xx) is true; opossum breaker per partner (50% error threshold over 10s, 30s reset) → `DependencyUnavailableError` when open; logs `partner, operation, status, durationMs` via `AppLogger`, never bodies; `responseType: 'json'` with non-JSON body → `PartnerHttpError{retryable:false, vendorCode:'INVALID_RESPONSE'}` (Review Focus 3).
 
-- [ ] **Step 1: Write failing tests** with nock: `sends correlation and vendor reference headers`, `basic auth header`, `maps 400 JSON body to PartnerHttpError with vendorCode from body.code`, `retries on 503 then succeeds (2 calls)`, `does not retry 4xx`, `timeout → transport error retryable`, `non-JSON 200 → INVALID_RESPONSE not retryable`, `open breaker → DependencyUnavailableError without network call`.
-- [ ] **Step 2: Run → FAIL**
-- [ ] **Step 3: Implement**
-- [ ] **Step 4: Run → PASS**
-- [ ] **Step 5: Commit** `feat(http): common outbound HTTP connector with retry and circuit breaker`
+- [x] **Step 1: Write failing tests** with nock: `sends correlation and vendor reference headers`, `basic auth header`, `maps 400 JSON body to PartnerHttpError with vendorCode from body.code`, `retries on 503 then succeeds (2 calls)`, `does not retry 4xx`, `timeout → transport error retryable`, `non-JSON 200 → INVALID_RESPONSE not retryable`, `open breaker → DependencyUnavailableError without network call`.
+- [x] **Step 2: Run → FAIL**
+- [x] **Step 3: Implement**
+- [x] **Step 4: Run → PASS**
+- [x] **Step 5: Commit** `feat(http): common outbound HTTP connector with retry and circuit breaker`
 
 ---
 
@@ -214,11 +214,11 @@ interface RetryPolicy { attempts: number; backoffMs: number; retryOn?: (e: Partn
 - `interface OutboxPort { add(tx, e: { aggregateType, aggregateId, eventType, payload }): Promise<string>; claimBatch(limit: number): Promise<OutboxRow[]>; markDispatched(id): Promise<void>; markFailed(id, error: string): Promise<void> }`; `InboxPort { insertIfNew(provider, eventKey, payload): Promise<{ inserted: boolean; id: string }>; markProcessed(id) ; markFailed(id, err) }`; `IdempotencyPort { find(principalId, route, key); save(record) }`; `AuditPort { append(tx, event) }`; `ClockPort { now(): Date }`; `IdGeneratorPort { uuid(): string }`.
 - Outbox `add` records `correlation_id` from `CorrelationStore` automatically.
 
-- [ ] **Step 1: Write failing tests**: `uow commits both outbox and audit rows`, `uow rolls back everything when fn throws, including the outbox row` (Review Focus 4), `inbox insertIfNew returns inserted=false on duplicate`, `idempotency save/find round trip`, `audit repository exposes no update/delete`.
-- [ ] **Step 2: Run → FAIL**
-- [ ] **Step 3: Write schema, run migration against docker Postgres, implement service/uow/repositories**
-- [ ] **Step 4: Run → PASS**
-- [ ] **Step 5: Commit** `feat(persistence): prisma, unit of work, outbox/inbox/idempotency/audit`
+- [x] **Step 1: Write failing tests**: `uow commits both outbox and audit rows`, `uow rolls back everything when fn throws, including the outbox row` (Review Focus 4), `inbox insertIfNew returns inserted=false on duplicate`, `idempotency save/find round trip`, `audit repository exposes no update/delete`.
+- [x] **Step 2: Run → FAIL**
+- [x] **Step 3: Write schema, run migration against docker Postgres, implement service/uow/repositories**
+- [x] **Step 4: Run → PASS**
+- [x] **Step 5: Commit** `feat(persistence): prisma, unit of work, outbox/inbox/idempotency/audit`
 
 ---
 
@@ -235,9 +235,9 @@ interface RetryPolicy { attempts: number; backoffMs: number; retryOn?: (e: Partn
 - `KvStorePort { setJson(key, value, ttlSeconds); getJson<T>(key): Promise<T|null>; del(key); getAndDel<T>(key) /* atomic GETDEL */ ; incrWithLimit(key, max): Promise<number> }`.
 - Key prefix constants: `otp:phone:`, `otp:email:`, `rl:`, `session:`, `preauth:`, `lock:`, `progress:`.
 
-- [ ] **Step 1: Write failing tests**: lock `second caller rejected while held, allowed after release`, limiter `allows up to limit then denies with retryAfter`, `fails closed when Redis is down (client pointed at a closed port)`, kv `getAndDel returns value once`.
-- [ ] **Step 2–4: FAIL → implement → PASS**
-- [ ] **Step 5: Commit** `feat(cache): redis lock, rate limiter and kv store`
+- [x] **Step 1: Write failing tests**: lock `second caller rejected while held, allowed after release`, limiter `allows up to limit then denies with retryAfter`, `fails closed when Redis is down (client pointed at a closed port)`, kv `getAndDel returns value once`.
+- [x] **Step 2–4: FAIL → implement → PASS**
+- [x] **Step 5: Commit** `feat(cache): redis lock, rate limiter and kv store`
 
 ---
 
@@ -254,9 +254,9 @@ interface RetryPolicy { attempts: number; backoffMs: number; retryOn?: (e: Partn
 - `abstract class BaseProcessor<T> extends WorkerHost { process(job) { return store.run({correlationId: job.data.correlationId, requestId: job.id}, () => this.handle(job.data.payload, job)) } abstract handle(payload: T, job): Promise<void> }`.
 - `EventRouter { register(eventType: string, target: { queue: QueueName; jobName: string }): void; route(eventType): target | undefined }`; `OutboxDispatcherProcessor` claims a batch (50), publishes each via `JobPublisherPort` with `jobId = outboxId`, marks dispatched, marks failed on error; `OutboxDispatcherScheduler` enqueues a repeatable `tick` job every 2 s (BullMQ repeat with `jobId: 'outbox-tick'`).
 
-- [ ] **Step 1: Write failing tests**: `BaseProcessor restores correlation id from envelope`, `publisher wraps payload with current correlation id`, `dispatcher routes known event, marks dispatched; unknown event marked failed with reason`, `router returns undefined for unknown`.
-- [ ] **Step 2–4: FAIL → implement (BullMQ with docker Redis for integration-ish tests; unit tests mock `Queue`) → PASS**
-- [ ] **Step 5: Commit** `feat(queue): bullmq module, correlation-aware processors, outbox dispatcher`
+- [x] **Step 1: Write failing tests**: `BaseProcessor restores correlation id from envelope`, `publisher wraps payload with current correlation id`, `dispatcher routes known event, marks dispatched; unknown event marked failed with reason`, `router returns undefined for unknown`.
+- [x] **Step 2–4: FAIL → implement (BullMQ with docker Redis for integration-ish tests; unit tests mock `Queue`) → PASS**
+- [x] **Step 5: Commit** `feat(queue): bullmq module, correlation-aware processors, outbox dispatcher`
 
 ---
 
@@ -270,9 +270,9 @@ interface RetryPolicy { attempts: number; backoffMs: number; retryOn?: (e: Partn
 - `@Idempotent()` method decorator marks a handler; interceptor requires `Idempotency-Key` header (1–128 chars) else 422 `ACTION_REQUIRED` with message "Idempotency-Key header is required"; key scope = `principal.id` (or `anon:<correlationId-less fingerprint of ip>` for pre-auth routes) + route template + key; same key + same body hash → replay stored status/body with header `Idempotent-Replay: true`; same key + different hash → `IdempotencyMismatchError`; records expire after 24 h.
 - `interface Principal { kind: 'CUSTOMER'|'PREAUTH'|'INTERNAL'|'REVIEWER'; id: string; applicationIds?: string[]; challengeId?: string; reviewerId?: string }`; `@CurrentPrincipal()` param decorator; `InternalServiceGuard` checks `X-Internal-Token` with `constantTimeEquals` against `appConfig.internalServiceToken`, optional `X-Reviewer-Id` populates `principal.reviewerId` and `CorrelationStore.set({reviewerId})`; missing/invalid → 401.
 
-- [ ] **Step 1: Write failing tests**: interceptor `missing header → 422`, `first call executes and stores`, `replay returns stored body and header`, `mismatch → 422 IDEMPOTENCY_MISMATCH`; guard `valid token passes and sets INTERNAL principal`, `reviewer id captured`, `invalid token → 401`.
-- [ ] **Step 2–4: FAIL → implement → PASS**
-- [ ] **Step 5: Commit** `feat(idempotency,auth): idempotency interceptor and internal service guard`
+- [x] **Step 1: Write failing tests**: interceptor `missing header → 422`, `first call executes and stores`, `replay returns stored body and header`, `mismatch → 422 IDEMPOTENCY_MISMATCH`; guard `valid token passes and sets INTERNAL principal`, `reviewer id captured`, `invalid token → 401`.
+- [x] **Step 2–4: FAIL → implement → PASS**
+- [x] **Step 5: Commit** `feat(idempotency,auth): idempotency interceptor and internal service guard`
 
 ---
 
@@ -288,9 +288,9 @@ interface RetryPolicy { attempts: number; backoffMs: number; retryOn?: (e: Partn
 - `GET /health` → `{ status: 'ok', service, version }`; `GET /health/ready` → checks Postgres (`SELECT 1`) and Redis (`PING`), 503 with per-dependency status when any fails.
 - `npm run openapi:export` writes `openapi/openapi.json` from the built app (script `tools/export-openapi.ts`).
 
-- [ ] **Step 1: Write failing tests**: `GET /health 200`, `GET /health/ready 503 when redis ping rejects`, `unknown route → envelope 404 with request_id`, `response carries X-Correlation-ID`, `GET /docs-json has openapi 3.x and the two security schemes`.
-- [ ] **Step 2–4: FAIL → implement → PASS; also `npm run build` succeeds and `node dist/app/main.js` boots against `make up` infra**
-- [ ] **Step 5: Commit** `feat(app): api/worker bootstrap, swagger, health, validation`
+- [x] **Step 1: Write failing tests**: `GET /health 200`, `GET /health/ready 503 when redis ping rejects`, `unknown route → envelope 404 with request_id`, `response carries X-Correlation-ID`, `GET /docs-json has openapi 3.x and the two security schemes`.
+- [x] **Step 2–4: FAIL → implement → PASS; also `npm run build` succeeds and `node dist/app/main.js` boots against `make up` infra**
+- [x] **Step 5: Commit** `feat(app): api/worker bootstrap, swagger, health, validation`
 
 ---
 
@@ -308,9 +308,9 @@ interface RetryPolicy { attempts: number; backoffMs: number; retryOn?: (e: Partn
 - `DigioGatewayBase` provides `post<T>(operation, path, body, opts)` on `HttpClientService` with basic auth from config, `vendorReferenceHeader: 'X_REFERENCE_ID'`, timeout, and maps `PartnerHttpError` → `DependencyUnavailableError` for 5xx/transport, `PartnerRejectedError` (new, 502 `PARTNER_REJECTED`, not retryable, carries `vendorCode`) for 4xx.
 - The four Digio spec JSONs from `/swagger/*.json` are saved under `docs/partners/digio/kra/*.min.json` as the reference for the types.
 
-- [ ] **Step 1: Write failing tests**: mapper `dates serialised DD/MM/YYYY`, `register uses common_kra_registration_request with martial_status spelling`; gateway with nock `sends basic auth and X_REFERENCE_ID = uniqueRequestId`, `fetch adds deserialize_codes query`, `download returns Buffer on application/octet-stream and rejects on JSON 200`, `Digio 400 → PartnerRejectedError with vendorCode`.
-- [ ] **Step 2–4: FAIL → implement, delete old connector/controller → PASS; `npm run lint` clean**
-- [ ] **Step 5: Commit** `refactor(digio): move KRA connector onto HttpClientService and ports`
+- [x] **Step 1: Write failing tests**: mapper `dates serialised DD/MM/YYYY`, `register uses common_kra_registration_request with martial_status spelling`; gateway with nock `sends basic auth and X_REFERENCE_ID = uniqueRequestId`, `fetch adds deserialize_codes query`, `download returns Buffer on application/octet-stream and rejects on JSON 200`, `Digio 400 → PartnerRejectedError with vendorCode`.
+- [x] **Step 2–4: FAIL → implement, delete old connector/controller → PASS; `npm run lint` clean**
+- [x] **Step 5: Commit** `refactor(digio): move KRA connector onto HttpClientService and ports`
 
 ---
 
@@ -323,11 +323,11 @@ interface RetryPolicy { attempts: number; backoffMs: number; retryOn?: (e: Partn
 **Interfaces:**
 - `.env.test` points at docker infra with `DATABASE_URL=postgresql://wmc:wmc@localhost:5432/wmc_pms_test`, `REDIS_URL=redis://localhost:6379/15`, `DIGIO_BASE_URL=http://localhost:8080/digio`, etc.
 
-- [ ] **Step 1: Write SIT tests**: `health ready is 200 with live infra`, `unknown route returns envelope with request_id equal to sent X-Correlation-ID`, `invalid correlation header is replaced`, `log output of a request contains the correlation id` (capture pino stream), `KraGateway against WireMock returns mapped status (uses mapping file)`, `WireMock 503 → DependencyUnavailableError`.
-- [ ] **Step 2: Run `make sit` → FAIL (no harness)**
-- [ ] **Step 3: Implement harness**
-- [ ] **Step 4: Run `make sit` → PASS; run `npm test` → coverage ≥ 90% across all thresholds**
-- [ ] **Step 5: Commit** `test(sit): system integration harness with docker infra and wiremock`
+- [x] **Step 1: Write SIT tests**: `health ready is 200 with live infra`, `unknown route returns envelope with request_id equal to sent X-Correlation-ID`, `invalid correlation header is replaced`, `log output of a request contains the correlation id` (capture pino stream), `KraGateway against WireMock returns mapped status (uses mapping file)`, `WireMock 503 → DependencyUnavailableError`.
+- [x] **Step 2: Run `make sit` → FAIL (no harness)**
+- [x] **Step 3: Implement harness**
+- [x] **Step 4: Run `make sit` → PASS; run `npm test` → coverage ≥ 90% across all thresholds**
+- [x] **Step 5: Commit** `test(sit): system integration harness with docker infra and wiremock`
 
 ---
 
@@ -337,5 +337,5 @@ interface RetryPolicy { attempts: number; backoffMs: number; retryOn?: (e: Partn
 - Create: `.github/workflows/ci.yml` (jobs: lint+build, unit with coverage artifact, sit with `docker compose` services), `docs/README-platform.md` (how correlation, logging, errors, http connector, uow, outbox, idempotency are used; one short example each)
 - Modify: `README.md` (replace Phase-0 content; link design, plan, platform doc)
 
-- [ ] **Step 1: Write workflow; run `act`-free verification by executing the same commands locally: `npm run lint && npm run build && npm test && make sit`**
-- [ ] **Step 2: Commit** `ci: lint, unit coverage and SIT pipeline; platform docs`
+- [x] **Step 1: Write workflow; run `act`-free verification by executing the same commands locally: `npm run lint && npm run build && npm test && make sit`**
+- [x] **Step 2: Commit** `ci: lint, unit coverage and SIT pipeline; platform docs`
