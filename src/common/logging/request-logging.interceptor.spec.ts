@@ -64,10 +64,9 @@ describe('RequestLoggingInterceptor', () => {
       .intercept(ctx('GET', undefined, '/nope?x=1', 404), next)
       .subscribe({
         error: () => {
-          const fields = logger.warn.mock.calls[0][1] as Record<
-            string,
-            unknown
-          >;
+          const fields = (
+            logger.warn.mock.calls as [string, Record<string, unknown>][]
+          )[0][1];
           expect(fields.route).toBe('/nope');
           expect(fields.outcome).toBe('error');
           done();

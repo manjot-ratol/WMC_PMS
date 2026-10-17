@@ -5,3 +5,7 @@ export * from './idempotency.port';
 export * from './inbox.port';
 export * from './outbox.port';
 export * from './unit-of-work.port';
+export * from './job-publisher.port';
+export * from './kv-store.port';
+export * from './lock.port';
+export * from './rate-limiter.port';
