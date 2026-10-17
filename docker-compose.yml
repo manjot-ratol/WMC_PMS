@@ -1,0 +1,95 @@
+# Local infrastructure for wmc_pms. `make up` starts infra only; `make app-up` adds api + worker.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: wmc_pms
+      POSTGRES_USER: wmc
+      POSTGRES_PASSWORD: wmc
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./tools/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wmc -d wmc_pms"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    # host 6380 because a local redis-server already owns 6379 on the dev machine
+    ports: ["6380:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    # minio/minio was withdrawn from public registries; the Bitnami legacy build keeps the MinIO API + console
+    image: bitnamilegacy/minio:latest
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+      MINIO_DEFAULT_BUCKETS: pms-documents
+    ports: ["9000:9000", "9001:9001"]
+    volumes:
+      - miniodata:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || curl -fs http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  wiremock:
+    image: wiremock/wiremock:3.9.1
+    command: ["--global-response-templating", "--verbose"]
+    ports: ["8080:8080"]
+    volumes:
+      - ./tools/wiremock:/home/wiremock
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/__admin/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ["8025:8025", "1025:1025"]
+
+  api:
+    profiles: ["app"]
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://wmc:wmc@postgres:5432/wmc_pms
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_ENDPOINT: http://minio:9000
+      SMTP_HOST: mailpit
+    ports: ["3000:3000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    profiles: ["app"]
+    build: .
+    command: ["node", "dist/app/worker.js"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://wmc:wmc@postgres:5432/wmc_pms
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_ENDPOINT: http://minio:9000
+      SMTP_HOST: mailpit
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  miniodata:
