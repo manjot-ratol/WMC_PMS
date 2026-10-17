@@ -1,0 +1,164 @@
+{
+  "info": {
+    "name": "WMC PMS - Digio KRA",
+    "_postman_id": "7c1f1d3e-5a6b-4b0f-9f6e-wmcpms0000001",
+    "description": "Two folders:\n\n1. **PMS API (local)** - calls this NestJS backend, which wraps Digio using the server-side credentials. Set `baseUrl` (default http://localhost:3000).\n2. **Digio direct** - calls Digio's KRA APIs straight from Postman. Set `digio_base_url`, `digio_client_id` and `digio_client_secret` (use the bundled environment file).\n\nRequest bodies follow Digio's snake_case wire format. Docs: https://documentation.digio.in/digikyc/kra/api_integration/",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "digio_base_url", "value": "https://ext.digio.in:444" },
+    { "key": "digio_client_id", "value": "" },
+    { "key": "digio_client_secret", "value": "" },
+    { "key": "pan_no", "value": "ABJPM6976J" },
+    { "key": "dob", "value": "16/08/1955" }
+  ],
+  "item": [
+    {
+      "name": "PMS API (local)",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "url": "{{baseUrl}}/" }
+        },
+        {
+          "name": "Check PAN status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', () => pm.response.to.be.success);",
+                  "pm.test('has status_code', () => pm.expect(pm.response.json()).to.have.property('status_code'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Reference-Id", "value": "{{$guid}}", "description": "Optional; forwarded to Digio as X_REFERENCE_ID" }
+            ],
+            "url": "{{baseUrl}}/kyc/kra/pan-status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pan_no\": \"{{pan_no}}\",\n  \"dob\": \"{{dob}}\",\n  \"fetch_type\": \"I\",\n  \"service_provider\": \"CDSL\"\n}"
+            },
+            "description": "Wraps POST /v3/client/kyc/kra/v2/get_pan_status. `unique_request_id` is generated server-side when omitted. Returns a 3-digit `status_code` (first digit = KRA holding the record)."
+          }
+        },
+        {
+          "name": "Fetch details",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/kyc/kra/details?deserialize_codes=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["kyc", "kra", "details"],
+              "query": [{ "key": "deserialize_codes", "value": "true", "description": "Expand coded values (state, country, occupation...)" }]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pan_no\": \"{{pan_no}}\",\n  \"dob\": \"{{dob}}\",\n  \"fetch_type\": \"I\",\n  \"service_provider\": \"CDSL\"\n}"
+            },
+            "description": "Wraps POST /v3/client/kyc/kra/download_pan. `dob` is required: date of birth for individuals, date of incorporation for entities (DD/MM/YYYY)."
+          }
+        },
+        {
+          "name": "Upload details (new individual)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/kyc/kra/upload",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"api_request_type\": \"stateless\",\n  \"service_provider\": \"CDSL\",\n  \"common_kra_registration_request\": {\n    \"update_flag\": \"01\",\n    \"kra_code\": \"CVLKRA\",\n    \"pos_code\": \"<your POS code>\",\n    \"app_no\": \"APP0001\",\n    \"pan_no\": \"{{pan_no}}\",\n    \"pan_copy\": \"N\",\n    \"app_exmt\": \"N\",\n    \"app_exmt_id_proof\": \"02\",\n    \"uid_no\": \"1234\",\n    \"applicant_name\": \"VINOD KUMAR SINGH\",\n    \"father_name\": \"KUMAR MAGON\",\n    \"gender\": \"M\",\n    \"martial_status\": \"01\",\n    \"dob_date\": \"{{dob}}\",\n    \"nationality\": \"01\",\n    \"app_residential_status\": \"R\",\n    \"occupation\": \"01\",\n    \"income\": \"03\",\n    \"pol_conn\": \"NA\",\n    \"mob_no\": \"9999999999\",\n    \"email\": \"abc@example.com\",\n    \"comm_addr1\": \"705 BHARTI APPARTMENT\",\n    \"comm_addr2\": \"PART-III PLOT NO-20\",\n    \"comm_city\": \"FARIDABAD\",\n    \"comm_state\": \"006\",\n    \"comm_country\": \"101\",\n    \"comm_pincode\": \"121001\",\n    \"comm_addr_proof\": \"02\",\n    \"cor_add_date\": \"01/01/2024\",\n    \"per_add_flag\": \"Y\",\n    \"kyc_mode\": \"0\",\n    \"ipv_flag\": \"Y\",\n    \"ipv_date\": \"01/01/2024\",\n    \"doc_proof\": \"S\",\n    \"fatca_applicable\": \"N\",\n    \"app_fatca_country\": \"101\",\n    \"kyc_document\": \"<base64 e-signed KYC form>\",\n    \"aadhaar_document\": \"<base64 aadhaar copy>\"\n  }\n}"
+            },
+            "description": "Wraps POST /v3/client/kyc/kra/app/register. Sample payload for a NEW individual; coded values are documented at https://documentation.digio.in/digikyc/kra/api_integration/upload_details/ . Note CVL KRA (from 1 Aug 2025): pan_copy must be N and app_exmt_id_proof must not be 01."
+          }
+        },
+        {
+          "name": "Check PAN status - validation error (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": { "type": "text/javascript", "exec": ["pm.test('400 from local validation', () => pm.response.to.have.status(400));"] }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/kyc/kra/pan-status",
+            "body": { "mode": "raw", "raw": "{\n  \"pan_no\": \"not-a-pan\"\n}" },
+            "description": "Rejected by the connector before any call to Digio."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Digio direct",
+      "auth": {
+        "type": "basic",
+        "basic": [
+          { "key": "username", "value": "{{digio_client_id}}", "type": "string" },
+          { "key": "password", "value": "{{digio_client_secret}}", "type": "string" }
+        ]
+      },
+      "item": [
+        {
+          "name": "KRA - Check PAN status",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X_REFERENCE_ID", "value": "{{$guid}}" }
+            ],
+            "url": "{{digio_base_url}}/v3/client/kyc/kra/v2/get_pan_status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pan_no\": \"{{pan_no}}\",\n  \"dob\": \"{{dob}}\",\n  \"fetch_type\": \"I\",\n  \"unique_request_id\": \"{{$guid}}\",\n  \"service_provider\": \"CDSL\"\n}"
+            }
+          }
+        },
+        {
+          "name": "KRA - Fetch details",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X_REFERENCE_ID", "value": "{{$guid}}" }
+            ],
+            "url": {
+              "raw": "{{digio_base_url}}/v3/client/kyc/kra/download_pan?deserialize_codes=false",
+              "host": ["{{digio_base_url}}"],
+              "path": ["v3", "client", "kyc", "kra", "download_pan"],
+              "query": [{ "key": "deserialize_codes", "value": "false" }]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pan_no\": \"{{pan_no}}\",\n  \"dob\": \"{{dob}}\",\n  \"fetch_type\": \"I\",\n  \"unique_request_id\": \"{{$guid}}\",\n  \"service_provider\": \"CDSL\"\n}"
+            }
+          }
+        },
+        {
+          "name": "KRA - Upload details",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X_REFERENCE_ID", "value": "{{$guid}}" }
+            ],
+            "url": "{{digio_base_url}}/v3/client/kyc/kra/app/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unique_request_id\": \"{{$guid}}\",\n  \"api_request_type\": \"stateless\",\n  \"service_provider\": \"CDSL\",\n  \"common_kra_registration_request\": {\n    \"update_flag\": \"01\",\n    \"kra_code\": \"CVLKRA\",\n    \"pos_code\": \"<your POS code>\",\n    \"app_no\": \"APP0001\",\n    \"pan_no\": \"{{pan_no}}\",\n    \"pan_copy\": \"N\",\n    \"app_exmt\": \"N\",\n    \"app_exmt_id_proof\": \"02\",\n    \"applicant_name\": \"VINOD KUMAR SINGH\",\n    \"father_name\": \"KUMAR MAGON\",\n    \"gender\": \"M\",\n    \"dob_date\": \"{{dob}}\",\n    \"nationality\": \"01\",\n    \"kyc_mode\": \"0\",\n    \"ipv_flag\": \"Y\",\n    \"app_fatca_country\": \"101\"\n  }\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
