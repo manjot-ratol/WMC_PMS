@@ -1,10 +1,11 @@
 import {
   ArgumentsHost,
   BadRequestException,
+  HttpException,
   NotFoundException,
 } from '@nestjs/common';
 import { CorrelationStore } from '../correlation/correlation.store';
-import { StaleVersionError } from './app-error';
+import { InternalError, StaleVersionError } from './app-error';
 import { ErrorEnvelope, ErrorEnvelopeFilter } from './error-envelope.filter';
 
 function hostWith(res: { status: jest.Mock; json: jest.Mock }): ArgumentsHost {
@@ -67,6 +68,42 @@ describe('ErrorEnvelopeFilter', () => {
     inContext(() => filter.catch(new NotFoundException(), hostWith(res)));
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json.mock.calls[0][0].error.code).toBe('NOT_FOUND');
+  });
+
+  it('marks 429 and 503 HttpExceptions retryable and unknown 5xx as INTERNAL_ERROR', () => {
+    inContext(() =>
+      filter.catch(new HttpException('slow down', 429), hostWith(res)),
+    );
+    expect(res.json.mock.calls[0][0].error).toMatchObject({
+      code: 'RATE_LIMITED',
+      retryable: true,
+    });
+    inContext(() =>
+      filter.catch(new HttpException('gone', 503), hostWith(res)),
+    );
+    expect(res.json.mock.calls[1][0].error).toMatchObject({
+      code: 'VERIFICATION_UNAVAILABLE',
+      retryable: true,
+    });
+    inContext(() =>
+      filter.catch(new HttpException('teapot', 418), hostWith(res)),
+    );
+    expect(res.json.mock.calls[2][0].error.code).toBe('ACTION_REQUIRED');
+    inContext(() =>
+      filter.catch(new HttpException('bad gateway', 502), hostWith(res)),
+    );
+    expect(res.json.mock.calls[3][0].error.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('logs AppErrors with 5xx status', () => {
+    inContext(() =>
+      filter.catch(
+        new InternalError('x', { details: { a: 1 } }),
+        hostWith(res),
+      ),
+    );
+    expect(logger.error).toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(500);
   });
 
   it('uses "none" as request_id outside a correlation context', () => {

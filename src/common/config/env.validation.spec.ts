@@ -64,6 +64,12 @@ describe('validateEnv', () => {
     expect(env.CLEVERTAP_ENABLED).toBe(true);
   });
 
+  it('skips the byte-length check when a key is not a string (the type error is reported instead)', () => {
+    expect(() => validateEnv({ ...base, OTP_HMAC_KEY: 12345 })).toThrow(
+      /OTP_HMAC_KEY must be a string/,
+    );
+  });
+
   it('rejects an unknown APP_ENV', () => {
     expect(() => validateEnv({ ...base, APP_ENV: 'staging' })).toThrow(
       /APP_ENV/,

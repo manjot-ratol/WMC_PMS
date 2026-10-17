@@ -29,37 +29,41 @@ export function loggerOptionsFromConfig(
  */
 @Injectable()
 export class AppLogger implements LoggerService {
-  private readonly pino: PinoLogger;
+  private pino: PinoLogger;
+  private moduleName?: string;
 
   constructor(
     private readonly store: CorrelationStore,
     @Optional() @Inject(LOGGER_OPTIONS) options?: LoggerOptions,
-    parent?: PinoLogger,
-    private readonly moduleName?: string,
   ) {
     const opts = options ?? {
       level: 'info',
       serviceName: 'wmc-pms',
       pretty: false,
     };
-    this.pino =
-      parent ??
-      pino(
-        {
-          level: opts.level,
-          base: { service: opts.serviceName },
-          timestamp: pino.stdTimeFunctions.isoTime,
-          transport:
-            opts.pretty && !opts.stream
-              ? { target: 'pino-pretty', options: { colorize: true } }
-              : undefined,
-        },
-        opts.stream,
-      );
+    this.pino = pino(
+      {
+        level: opts.level,
+        base: { service: opts.serviceName },
+        timestamp: pino.stdTimeFunctions.isoTime,
+        transport:
+          opts.pretty && !opts.stream
+            ? { target: 'pino-pretty', options: { colorize: true } }
+            : undefined,
+      },
+      opts.stream,
+    );
   }
 
+  /** Cheap clone sharing the pino instance, stamped with a module name. */
   child(module: string): AppLogger {
-    return new AppLogger(this.store, undefined, this.pino, module);
+    const clone = Object.create(AppLogger.prototype) as AppLogger;
+    Object.assign(clone, {
+      store: this.store,
+      pino: this.pino,
+      moduleName: module,
+    });
+    return clone;
   }
 
   debug(msg: string, fields?: Record<string, unknown>): void {

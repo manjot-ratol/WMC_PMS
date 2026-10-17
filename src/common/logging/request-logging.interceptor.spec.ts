@@ -74,6 +74,23 @@ describe('RequestLoggingInterceptor', () => {
       });
   });
 
+  it('reports unknown for non-Error rejections and ignores non-string route paths', (done) => {
+    const c = ctx('GET', undefined, '/x', 500);
+    c.switchToHttp().getRequest<{ route?: unknown }>().route = { path: 42 };
+    interceptor
+      .intercept(c, { handle: () => throwError(() => 'string-failure') })
+      .subscribe({
+        error: () => {
+          const fields = (
+            logger.warn.mock.calls as [string, Record<string, unknown>][]
+          )[0][1];
+          expect(fields.errorName).toBe('unknown');
+          expect(fields.route).toBe('/x');
+          done();
+        },
+      });
+  });
+
   it('passes through non-http contexts', (done) => {
     const c = { getType: () => 'rpc' } as unknown as ExecutionContext;
     interceptor.intercept(c, { handle: () => of(1) }).subscribe((v) => {

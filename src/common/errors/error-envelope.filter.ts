@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { CorrelationStore } from '../correlation/correlation.store';
-import type { AppLogger } from '../logging/logger.service';
+import { AppLogger } from '../logging/logger.service';
 import { AppError } from './app-error';
 import { ERROR_MESSAGES, ErrorCode } from './error-codes';
 
@@ -34,7 +34,7 @@ const HTTP_TO_CODE: Record<number, ErrorCode> = {
 export class ErrorEnvelopeFilter implements ExceptionFilter {
   constructor(
     private readonly store: CorrelationStore,
-    private readonly logger: Pick<AppLogger, 'error' | 'warn'>,
+    private readonly logger: AppLogger,
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {

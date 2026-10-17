@@ -129,12 +129,36 @@ describe('IdempotencyInterceptor', () => {
     ).rejects.toBeInstanceOf(IdempotencyMismatchError);
   });
 
+  it('accepts a repeated header (first value), falls back to the url when no route, and stores null bodies', async () => {
+    const ctx = ctxFor({ principalId: 'p', key: 'k9', body: undefined });
+    const req = ctx.switchToHttp().getRequest<{
+      headers: Record<string, unknown>;
+      route?: unknown;
+      originalUrl?: string;
+    }>();
+    req.headers['idempotency-key'] = ['k9', 'other'];
+    delete req.route;
+    req.originalUrl = '/v1/raw?x=1';
+    await lastValueFrom(
+      await interceptor.intercept(ctx, { handle: () => of(undefined) }),
+    );
+    expect(port.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'k9',
+        route: 'POST /v1/raw',
+        responseBody: null,
+      }),
+    );
+  });
+
   it('scopes pre-auth requests by client ip', async () => {
     await lastValueFrom(
       await interceptor.intercept(ctxFor({ key: 'k3' }), next({})),
     );
     expect(port.save).toHaveBeenCalledWith(
-      expect.objectContaining({ principalId: expect.stringMatching(/^anon:/) }),
+      expect.objectContaining({
+        principalId: expect.stringMatching(/^anon:/) as string,
+      }),
     );
   });
 });

@@ -25,6 +25,10 @@ describe('Fingerprint', () => {
     );
   });
 
+  it('leaves otp values untouched by normalisation', () => {
+    expect(fp.of(' 123456 ', 'otp')).not.toBe(fp.of('123456', 'otp'));
+  });
+
   it('differs with a different key', () => {
     const other = new Fingerprint({
       fingerprintKeyBase64: Buffer.alloc(32, 1).toString('base64'),

@@ -110,6 +110,26 @@ describeWithDb('PrismaUnitOfWork (docker postgres)', () => {
     ).toBe(0);
   });
 
+  it('audit append works without a transaction and without details', async () => {
+    await inCtx(corr('audit-plain'), () =>
+      audit.append({
+        actorType: 'REVIEWER',
+        actorId: 'rev_1',
+        action: 'decide',
+        aggregateType: 'case',
+        aggregateId: ns,
+      }),
+    );
+    const row = await prisma.auditEvent.findFirst({
+      where: { correlationId: corr('audit-plain') },
+    });
+    expect(row).toMatchObject({
+      actorType: 'REVIEWER',
+      actorId: 'rev_1',
+      details: null,
+    });
+  });
+
   it('supports nested run by reusing the outer transaction', async () => {
     await inCtx(corr('nested'), () =>
       uow.run(async (tx) => {

@@ -81,6 +81,24 @@ describe('AppLogger', () => {
     expect(lines[0]).toMatchObject({ msg: 'nest', module: 'Ctx' });
   });
 
+  it('exposes fatal and verbose for the framework', () => {
+    const { lines, stream } = capture();
+    const logger = new AppLogger(store, {
+      level: 'trace',
+      serviceName: 'svc',
+      pretty: false,
+      stream,
+    });
+    logger.fatal('f', 'Ctx');
+    logger.verbose('v');
+    expect(lines[0]).toMatchObject({ level: 60, msg: 'f', module: 'Ctx' });
+    expect(lines[1]).toMatchObject({ level: 10, msg: 'v' });
+  });
+
+  it('builds a default logger without options', () => {
+    expect(() => new AppLogger(store)).not.toThrow();
+  });
+
   it('respects the level', () => {
     const { lines, stream } = capture();
     const logger = new AppLogger(store, {

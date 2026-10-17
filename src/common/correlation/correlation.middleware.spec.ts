@@ -41,6 +41,20 @@ describe('CorrelationMiddleware', () => {
     expect(run({ 'x-correlation-id': 'has space' }).seen).toMatch(UUID_RE);
   });
 
+  it('takes the first value of a repeated header', () => {
+    const store = new CorrelationStore();
+    const mw = new CorrelationMiddleware(store);
+    let seen = '';
+    mw.use(
+      { headers: { 'x-correlation-id': ['first-1', 'second-2'] } } as never,
+      { setHeader: jest.fn() } as never,
+      () => {
+        seen = store.getCorrelationId();
+      },
+    );
+    expect(seen).toBe('first-1');
+  });
+
   it('isValidCorrelationId accepts printable ASCII without spaces, 1-128 chars', () => {
     expect(isValidCorrelationId('ok_1.2-3')).toBe(true);
     expect(isValidCorrelationId('')).toBe(false);

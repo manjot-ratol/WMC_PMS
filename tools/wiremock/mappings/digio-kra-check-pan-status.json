@@ -1,0 +1,55 @@
+{
+  "mappings": [
+    {
+      "name": "digio-kra-check-pan-status-ok",
+      "priority": 10,
+      "request": {
+        "method": "POST",
+        "urlPath": "/digio/v3/client/kyc/kra/v2/get_pan_status",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.pan_no == 'ABJPM6976J')]" }]
+      },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "jsonBody": {
+          "pan_number": "ABJPM6976J",
+          "name": "VINOD KUMAR singh",
+          "status_code": "007",
+          "status": "Validated",
+          "status_description": "KYC details have been successfully verified. Customer can start investing. ",
+          "kra_status_code": "007",
+          "status_date": "02/06/2023 17:15:24",
+          "entry_date": "18/06/2013 17:35:19",
+          "modification_date": "10/09/2024 09:48:27",
+          "update_status": "001",
+          "kyc_mode": "0",
+          "kyc_mode_description": "Normal KYC",
+          "ipv_flag": "Y",
+          "response_date": "02/06/2023 17:15:24",
+          "total_records": "1",
+          "ref_id": "KCA25052212000311484ETY7Q83QHQCG"
+        }
+      }
+    },
+    {
+      "name": "digio-kra-check-pan-status-down",
+      "priority": 10,
+      "request": {
+        "method": "POST",
+        "urlPath": "/digio/v3/client/kyc/kra/v2/get_pan_status",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.pan_no == 'DOWNX0000X')]" }]
+      },
+      "response": { "status": 503, "headers": { "Content-Type": "application/json" }, "jsonBody": { "code": "SYSTEM_ERROR", "message": "upstream unavailable" } }
+    },
+    {
+      "name": "digio-kra-check-pan-status-rejected",
+      "priority": 10,
+      "request": {
+        "method": "POST",
+        "urlPath": "/digio/v3/client/kyc/kra/v2/get_pan_status",
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.pan_no == 'BADPN0000X')]" }]
+      },
+      "response": { "status": 400, "headers": { "Content-Type": "application/json" }, "jsonBody": { "details": "EX23297402937402", "code": "REQUEST_VALIDATION_FAILED", "message": "Request Validation Failed" } }
+    }
+  ]
+}

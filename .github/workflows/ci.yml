@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+
+jobs:
+  lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint -- --max-warnings=0
+      - run: npm run build
+
+  unit:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_DB: wmc_pms_test, POSTGRES_USER: wmc, POSTGRES_PASSWORD: wmc }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U wmc" --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6380:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test -- --forceExit
+      - uses: actions/upload-artifact@v4
+        with: { name: coverage, path: coverage/lcov-report }
+
+  sit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - run: docker compose up -d postgres redis minio wiremock mailpit
+      - run: npm run test:sit -- --forceExit
+      - if: always()
+        run: docker compose down -v

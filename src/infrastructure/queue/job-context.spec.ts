@@ -24,6 +24,28 @@ describe('queue job context', () => {
     expect(p.seen).toEqual(['7:corr-job']);
   });
 
+  it('BaseProcessor tolerates a job without id', async () => {
+    const p = new EchoProcessor(store);
+    await p.process({
+      name: 'n',
+      data: { correlationId: 'c', payload: { v: 1 } },
+    } as never);
+    expect(p.seen).toEqual(['1:c']);
+  });
+
+  it('BullJobPublisher works without options', async () => {
+    const add = jest.fn().mockResolvedValue(undefined);
+    const publisher = new BullJobPublisher(store, {
+      get: () => ({ add }),
+    } as never);
+    await publisher.publish('q', 'n', { a: 1 });
+    expect(add).toHaveBeenCalledWith(
+      'n',
+      { correlationId: 'none', payload: { a: 1 } },
+      expect.objectContaining({ jobId: undefined, delay: undefined }),
+    );
+  });
+
   it('BullJobPublisher wraps payload with the current correlation id and passes jobId', async () => {
     const add = jest.fn().mockResolvedValue(undefined);
     const queues = { get: jest.fn().mockReturnValue({ add }) };
@@ -47,8 +69,8 @@ describe('queue job context', () => {
     expect(opts).toMatchObject({
       jobId: 'ob-1',
       delay: 10,
-      removeOnComplete: expect.anything(),
-      attempts: expect.any(Number),
+      removeOnComplete: expect.anything() as unknown,
+      attempts: expect.any(Number) as number,
     });
   });
 });

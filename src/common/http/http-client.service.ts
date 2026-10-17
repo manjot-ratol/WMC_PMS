@@ -5,10 +5,10 @@ import { CorrelationStore } from '../correlation/correlation.store';
 import { DependencyUnavailableError } from '../errors/app-error';
 import { AppLogger } from '../logging/logger.service';
 import { CircuitBreakerRegistry } from './circuit-breaker.registry';
-import {
+import { PARTNER_TIMEOUTS } from './http-request.types';
+import type {
   HttpRequestSpec,
   HttpResult,
-  PARTNER_TIMEOUTS,
   PartnerTimeouts,
 } from './http-request.types';
 import { PartnerHttpError } from './partner-http.error';

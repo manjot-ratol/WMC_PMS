@@ -97,6 +97,34 @@ describe('OutboxDispatcherProcessor', () => {
     expect(result).toEqual({ claimed: 2, dispatched: 1, failed: 1 });
   });
 
+  it('returns zeros and logs nothing for an empty batch', async () => {
+    outbox.claimBatch.mockResolvedValue([]);
+    await expect(processor.handle({ limit: 50 })).resolves.toEqual({
+      claimed: 0,
+      dispatched: 0,
+      failed: 0,
+    });
+    expect(logger.info).not.toHaveBeenCalled();
+  });
+
+  it('stringifies non-Error publish rejections', async () => {
+    outbox.claimBatch.mockResolvedValue([
+      {
+        id: 'ob-5',
+        eventType: 'ScreeningRequested',
+        aggregateType: 'a',
+        aggregateId: '1',
+        payload: {},
+        correlationId: 'c',
+        createdAt: new Date(),
+        attempts: 0,
+      },
+    ]);
+    publisher.publish.mockRejectedValue('plain failure');
+    await processor.handle({ limit: 50 });
+    expect(outbox.markFailed).toHaveBeenCalledWith('ob-5', 'plain failure');
+  });
+
   it('marks failed when publishing throws and runs each row under its own correlation id', async () => {
     outbox.claimBatch.mockResolvedValue([
       {

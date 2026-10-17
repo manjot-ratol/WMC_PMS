@@ -214,6 +214,140 @@ describe('HttpClientService', () => {
     expect(scope.isDone()).toBe(true);
   });
 
+  it('sends text bodies and multipart bodies as given', async () => {
+    const scope = nock(BASE, { reqheaders: { 'content-type': /text\/plain/ } })
+      .post('/t', 'raw-text')
+      .reply(200, 'ok', { 'content-type': 'text/plain' });
+    const res = await client.request<string>({
+      partner: 'mfcentral',
+      operation: 't',
+      method: 'POST',
+      url: `${BASE}/t`,
+      bodyType: 'text',
+      body: 'raw-text',
+      responseType: 'text',
+    });
+    expect(res.data).toBe('ok');
+    expect(scope.isDone()).toBe(true);
+    const form = new FormData();
+    form.append('a', '1');
+    nock(BASE).post('/m').reply(200, {});
+    await expect(
+      client.request({
+        partner: 'digio',
+        operation: 'm',
+        method: 'POST',
+        url: `${BASE}/m`,
+        bodyType: 'multipart',
+        body: form,
+      }),
+    ).resolves.toMatchObject({ status: 200 });
+  });
+
+  it('returns undefined data for an empty 200 body and wraps a non-JSON error body', async () => {
+    nock(BASE).get('/empty').reply(200, '');
+    const res = await client.request({
+      partner: 'digio',
+      operation: 'e',
+      method: 'GET',
+      url: `${BASE}/empty`,
+    });
+    expect(res.data).toBeUndefined();
+    nock(BASE)
+      .get('/html500')
+      .reply(500, '<html>boom</html>', { 'content-type': 'text/html' });
+    const err = (await client
+      .request({
+        partner: 'digio',
+        operation: 'h',
+        method: 'GET',
+        url: `${BASE}/html500`,
+      })
+      .catch((e: unknown) => e)) as PartnerHttpError;
+    expect(err.status).toBe(500);
+    expect(err.body).toEqual({ raw: '<html>boom</html>' });
+    expect(err.vendorCode).toBeUndefined();
+  });
+
+  it('error bodies are omitted for non-JSON response types and transport errors keep a message', async () => {
+    nock(BASE).get('/bin404').reply(404, Buffer.from('nope'), {
+      'content-type': 'application/octet-stream',
+    });
+    const err = (await client
+      .request({
+        partner: 'digio',
+        operation: 'b',
+        method: 'GET',
+        url: `${BASE}/bin404`,
+        responseType: 'arraybuffer',
+      })
+      .catch((e: unknown) => e)) as PartnerHttpError;
+    expect(err.status).toBe(404);
+    expect(err.body).toBeUndefined();
+    nock(BASE)
+      .get('/txt500')
+      .reply(500, 'oops', { 'content-type': 'text/plain' });
+    const txt = (await client
+      .request({
+        partner: 'digio',
+        operation: 't',
+        method: 'GET',
+        url: `${BASE}/txt500`,
+        responseType: 'text',
+      })
+      .catch((e: unknown) => e)) as PartnerHttpError;
+    expect(txt.status).toBe(500);
+    nock(BASE)
+      .get('/reset')
+      .replyWithError({ message: 'socket hang up', code: 'ECONNRESET' });
+    const net = (await client
+      .request({
+        partner: 'digio',
+        operation: 'n',
+        method: 'GET',
+        url: `${BASE}/reset`,
+      })
+      .catch((e: unknown) => e)) as PartnerHttpError;
+    expect(net.isTransport).toBe(true);
+    expect(net.message).toContain('socket hang up');
+  });
+
+  it('accepts an explicit auth none and pre-parsed JSON objects', async () => {
+    nock(BASE).get('/none').reply(200, { ok: 1 });
+    const res = await client.request<{ ok: number }>({
+      partner: 'digio',
+      operation: 'none',
+      method: 'GET',
+      url: `${BASE}/none`,
+      auth: { type: 'none' },
+    });
+    expect(res.data).toEqual({ ok: 1 });
+  });
+
+  it('takes vendor codes from error_code / errorCode / error keys', async () => {
+    for (const body of [
+      { error_code: 'A' },
+      { errorCode: 'B' },
+      { error: 'C' },
+      { nothing: 1 },
+    ]) {
+      nock(BASE).get('/vc').reply(400, body);
+      const err = (await client
+        .request({
+          partner: 'digio',
+          operation: 'vc',
+          method: 'GET',
+          url: `${BASE}/vc`,
+        })
+        .catch((e: unknown) => e)) as PartnerHttpError;
+      expect(err.vendorCode).toBe(
+        (body as Record<string, string>).error_code ??
+          (body as Record<string, string>).errorCode ??
+          (body as Record<string, string>).error,
+      );
+    }
+  });
+
   it('opens the breaker after repeated failures and fails fast', async () => {
     nock(BASE).get('/f').times(2).reply(503, {});
     await client

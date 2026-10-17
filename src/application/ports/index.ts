@@ -9,3 +9,4 @@ export * from './job-publisher.port';
 export * from './kv-store.port';
 export * from './lock.port';
 export * from './rate-limiter.port';
+export * from './kra-gateway.port';
