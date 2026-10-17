@@ -3,7 +3,7 @@ import type {
   IdempotencyPort,
   IdempotencyRecord,
 } from '../../../application/ports/idempotency.port';
-import type { Prisma } from '../../../generated/prisma';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()

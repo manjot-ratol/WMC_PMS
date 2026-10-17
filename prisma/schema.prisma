@@ -1,7 +1,6 @@
 // Phase 1: reliability tables. Business schemas arrive with their phases.
 generator client {
   provider        = "prisma-client-js"
-  output          = "../src/generated/prisma"
   previewFeatures = ["multiSchema"]
 }
 

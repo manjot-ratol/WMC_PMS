@@ -4,7 +4,7 @@ import type {
   AuditPort,
 } from '../../../application/ports/audit.port';
 import { CorrelationStore } from '../../../common/correlation/correlation.store';
-import type { Prisma } from '../../../generated/prisma';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import type { TransactionContext } from '../transaction-context';
 import { clientOf } from './base.repository';

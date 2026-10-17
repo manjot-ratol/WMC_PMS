@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { databaseConfig } from '../../common/config/database.config';
-import { PrismaClient } from '../../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 /** The only Prisma client in the codebase. Lives behind repositories; never injected into services. */
 @Injectable()
