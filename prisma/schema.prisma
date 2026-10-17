@@ -1,0 +1,110 @@
+// Phase 1: reliability tables. Business schemas arrive with their phases.
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["reliability"]
+}
+
+enum InboxStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+
+  @@schema("reliability")
+}
+
+enum ActorType {
+  CUSTOMER
+  SYSTEM
+  REVIEWER
+  PARTNER
+
+  @@schema("reliability")
+}
+
+model BusinessOutbox {
+  id            String    @id @default(uuid()) @db.Uuid
+  aggregateType String    @map("aggregate_type")
+  aggregateId   String    @map("aggregate_id")
+  eventType     String    @map("event_type")
+  payload       Json
+  correlationId String    @map("correlation_id")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  dispatchedAt  DateTime? @map("dispatched_at") @db.Timestamptz
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error")
+
+  @@index([dispatchedAt, createdAt])
+  @@map("business_outbox")
+  @@schema("reliability")
+}
+
+model AnalyticsOutbox {
+  id            String    @id @default(uuid()) @db.Uuid
+  eventName     String    @map("event_name")
+  identity      String?
+  properties    Json
+  correlationId String    @map("correlation_id")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  dispatchedAt  DateTime? @map("dispatched_at") @db.Timestamptz
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error")
+
+  @@index([dispatchedAt, createdAt])
+  @@map("analytics_outbox")
+  @@schema("reliability")
+}
+
+model IntegrationInbox {
+  id            String      @id @default(uuid()) @db.Uuid
+  provider      String
+  eventKey      String      @map("event_key")
+  payload       Json
+  status        InboxStatus @default(RECEIVED)
+  correlationId String      @map("correlation_id")
+  receivedAt    DateTime    @default(now()) @map("received_at") @db.Timestamptz
+  processedAt   DateTime?   @map("processed_at") @db.Timestamptz
+  lastError     String?     @map("last_error")
+
+  @@unique([provider, eventKey])
+  @@map("integration_inbox")
+  @@schema("reliability")
+}
+
+model IdempotencyRecord {
+  principalId  String   @map("principal_id")
+  route        String
+  key          String
+  requestHash  String   @map("request_hash")
+  statusCode   Int      @map("status_code")
+  responseBody Json     @map("response_body")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz
+
+  @@id([principalId, route, key])
+  @@index([expiresAt])
+  @@map("idempotency_records")
+  @@schema("reliability")
+}
+
+model AuditEvent {
+  id            BigInt    @id @default(autoincrement())
+  occurredAt    DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+  actorType     ActorType @map("actor_type")
+  actorId       String?   @map("actor_id")
+  action        String
+  aggregateType String    @map("aggregate_type")
+  aggregateId   String    @map("aggregate_id")
+  correlationId String    @map("correlation_id")
+  details       Json?
+
+  @@index([aggregateType, aggregateId, occurredAt])
+  @@map("audit_events")
+  @@schema("reliability")
+}

@@ -33,3 +33,6 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+
+# generated prisma client
+/src/generated
