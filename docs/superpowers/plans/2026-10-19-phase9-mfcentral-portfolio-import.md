@@ -36,3 +36,20 @@
 ### Task 3: Gateway additions (decrypt, redirect URL), MF Central mock server + entrypoint, service (start/get/skip/portfolio), identity next-screen change
 ### Task 4: Callback ingress, processor, outbox route, KYC lookup next-screen guard
 ### Task 5: Controllers, DTOs, Swagger, wiring, fakes, unit specs, SIT, Postman, README, Docker, coverage gate
+
+## Completion notes (2026-10-19)
+
+All five tasks are built and verified: 509 unit tests (coverage 98% lines / 85% branches), 42 SIT tests (screens 06A/06B
+through the in-process MF Central mock, plus the skip path on the FRESH-KYC application), lint and build clean. Notes:
+
+- Insertion point: screen 06 answers `next_screen: PORTFOLIO_IMPORT` immediately; the KRA lookup keeps running and its
+  processor no longer overwrites the next screen while the customer is inside the import (unless the route is ASSISTED).
+  Completing or skipping the import re-reads the KYC record for the next screen.
+- The vendor call is synchronous in `start` (like signing) so the FE gets the hand-off URL in the response; a vendor
+  rejection is stored as `FAILED / provider_rejected` (201, not an error) so the FE can offer retry or skip.
+- MF Central's collection has no sample statement or callback contract, so the callback parser and CAS parser accept
+  the mock's shape plus common aliases and are flagged `PLACEHOLDER_PENDING_MFCENTRAL_CONFIRMATION`; the QR variant
+  (`validateQRCode`) stays connector-only. Against UAT the `redirectUrl` must be whitelisted and a tenant test PAN is
+  still pending from MF Central.
+- Declining consent completes the step (the customer decided); an undecryptable or unparseable statement is
+  `FAILED / invalid_payload` and keeps the customer on 06A.
