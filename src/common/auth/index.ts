@@ -2,3 +2,8 @@ export * from './auth.module';
 export * from './internal-service.guard';
 export * from './principal';
 export * from './principal.decorator';
+export * from './application-ownership.guard';
+export * from './auth.decorators';
+export * from './bearer';
+export * from './preauth.guard';
+export * from './session.guard';

@@ -7,7 +7,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["reliability"]
+  schemas  = ["reliability", "identity", "onboarding"]
 }
 
 enum InboxStatus {
@@ -106,4 +106,114 @@ model AuditEvent {
   @@index([aggregateType, aggregateId, occurredAt])
   @@map("audit_events")
   @@schema("reliability")
+}
+
+// ---------------- identity ----------------
+
+enum CustomerState {
+  UNVERIFIED
+  VERIFIED
+
+  @@schema("identity")
+}
+
+model Customer {
+  id               String        @id
+  phoneCiphertext  Bytes         @map("phone_ciphertext")
+  phoneFingerprint String        @unique @map("phone_fingerprint")
+  phoneVerifiedAt  DateTime?     @map("phone_verified_at") @db.Timestamptz
+  emailCiphertext  Bytes?        @map("email_ciphertext")
+  emailFingerprint String?       @map("email_fingerprint")
+  emailVerifiedAt  DateTime?     @map("email_verified_at") @db.Timestamptz
+  state            CustomerState @default(UNVERIFIED)
+  version          Int           @default(0)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([emailFingerprint])
+  @@map("customers")
+  @@schema("identity")
+}
+
+model AuthChallenge {
+  id                String    @id
+  channel           String
+  purpose           String
+  targetFingerprint String    @map("target_fingerprint")
+  customerId        String?   @map("customer_id")
+  applicationId     String?   @map("application_id")
+  status            String
+  maxAttempts       Int       @map("max_attempts")
+  createdAt         DateTime  @map("created_at") @db.Timestamptz
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz
+  resendAfter       DateTime  @map("resend_after") @db.Timestamptz
+  verifiedAt        DateTime? @map("verified_at") @db.Timestamptz
+  correlationId     String    @map("correlation_id")
+
+  @@index([targetFingerprint, createdAt])
+  @@map("auth_challenges")
+  @@schema("identity")
+}
+
+model Session {
+  id         String    @id
+  tokenHash  String    @unique @map("token_hash")
+  customerId String    @map("customer_id")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
+
+  @@index([customerId])
+  @@map("sessions")
+  @@schema("identity")
+}
+
+// ---------------- onboarding ----------------
+
+model OnboardingApplication {
+  id             String            @id
+  customerId     String            @map("customer_id")
+  status         String
+  journeyVersion String            @map("journey_version")
+  nextScreen     String            @map("next_screen")
+  version        Int               @default(0)
+  createdAt      DateTime          @map("created_at") @db.Timestamptz
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  steps          ApplicationStep[]
+
+  @@index([customerId, status])
+  @@map("onboarding_applications")
+  @@schema("onboarding")
+}
+
+model ApplicationStep {
+  applicationId String                @map("application_id")
+  stepId        String                @map("step_id")
+  status        String
+  version       Int
+  completedAt   DateTime?             @map("completed_at") @db.Timestamptz
+  application   OnboardingApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@id([applicationId, stepId])
+  @@map("application_steps")
+  @@schema("onboarding")
+}
+
+model EligibilityDecision {
+  id                    String   @id
+  applicationId         String   @map("application_id")
+  version               Int
+  customerType          String   @map("customer_type")
+  residentialStatus     String   @map("residential_status")
+  intendedInvestmentInr BigInt   @map("intended_investment_inr")
+  distributionRoute     String   @map("distribution_route")
+  status                String
+  rulesetVersion        String   @map("ruleset_version")
+  journeyRoute          String?  @map("journey_route")
+  reasons               Json
+  decidedAt             DateTime @map("decided_at") @db.Timestamptz
+
+  @@unique([applicationId, version])
+  @@map("eligibility_decisions")
+  @@schema("onboarding")
 }

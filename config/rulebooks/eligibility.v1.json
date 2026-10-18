@@ -1,0 +1,10 @@
+{
+  "version": "eligibility_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: values must be confirmed by Compliance before launch.",
+  "effectiveFrom": "2026-10-18",
+  "minInvestmentInr": 2500000,
+  "customerTypes": { "INDIVIDUAL": "ELIGIBLE", "NON_INDIVIDUAL": "ASSISTED_REQUIRED" },
+  "residentialStatuses": { "RESIDENT": "ELIGIBLE", "NRI": "ASSISTED_REQUIRED", "OCI": "ASSISTED_REQUIRED", "FOREIGN": "ASSISTED_REQUIRED" },
+  "distributionRoutes": { "DIRECT": "ELIGIBLE", "DISTRIBUTOR": "ASSISTED_REQUIRED" },
+  "journeyRoute": "RESIDENT_SINGLE_HOLDER"
+}
