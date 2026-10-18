@@ -1,0 +1,12 @@
+{
+  "version": "document_requirements_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE",
+  "maxSizeBytes": 10485760,
+  "allowedContentTypes": ["image/jpeg", "image/png", "application/pdf"],
+  "requirements": {
+    "ADDRESS_PROOF": { "documentTypes": { "PASSPORT": ["PHOTO_PAGE", "ADDRESS_PAGE"], "DRIVING_LICENSE": ["FRONT", "BACK"], "VOTER_ID": ["FRONT", "BACK"], "AADHAAR_MASKED": ["FRONT", "BACK"] } },
+    "IDENTITY_PROOF": { "documentTypes": { "PASSPORT": ["PHOTO_PAGE"], "DRIVING_LICENSE": ["FRONT"], "VOTER_ID": ["FRONT"], "AADHAAR_MASKED": ["FRONT"] } },
+    "SELFIE": { "documentTypes": { "SELFIE": ["PHOTO"] } },
+    "SIGNATURE": { "documentTypes": { "SIGNATURE": ["IMAGE"] } }
+  }
+}

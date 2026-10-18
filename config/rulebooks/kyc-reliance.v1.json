@@ -1,0 +1,11 @@
+{
+  "version": "kyc_reliance_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: KRA status codes are three digits; the first digit identifies the KRA. Codes listed by their last two digits are matched regardless of KRA. Unknown codes go to ASSISTED (review).",
+  "effectiveFrom": "2026-10-18",
+  "reuseStatusSuffixes": ["07"],
+  "remediateStatusSuffixes": ["02", "04", "05", "06"],
+  "freshStatusSuffixes": ["01", "03", "08", "09"],
+  "noRecordErrorCodes": ["ERR-90079", "ERR-90144", "ERR-00009"],
+  "maxRecordAgeDays": 3650,
+  "requireIpvFlagForReuse": false
+}

@@ -217,3 +217,135 @@ model EligibilityDecision {
   @@map("eligibility_decisions")
   @@schema("onboarding")
 }
+
+// ---------------- onboarding: identity, kyc, documents, ipv (phase 3) ----------------
+
+model IdentityVersion {
+  applicationId     String   @map("application_id")
+  version           Int
+  panCiphertext     Bytes    @map("pan_ciphertext")
+  panFingerprint    String   @map("pan_fingerprint")
+  legalName         String   @map("legal_name")
+  dateOfBirth       DateTime @map("date_of_birth") @db.Date
+  permissionVersion String   @map("permission_version")
+  status            String
+  submittedAt       DateTime @map("submitted_at") @db.Timestamptz
+
+  @@id([applicationId, version])
+  @@index([panFingerprint])
+  @@map("identity_versions")
+  @@schema("onboarding")
+}
+
+model KycRecord {
+  id                 String    @id
+  applicationId      String    @map("application_id")
+  identityVersion    Int       @map("identity_version")
+  provider           String
+  status             String
+  route              String?
+  operationId        String    @map("operation_id")
+  version            Int       @default(0)
+  summary            Json?
+  evidenceKey        String?   @map("evidence_key")
+  ipvExemptionBasis  String?   @map("ipv_exemption_basis")
+  safeErrorCategory  String?   @map("safe_error_category")
+  confirmedAt        DateTime? @map("confirmed_at") @db.Timestamptz
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([applicationId, identityVersion])
+  @@index([applicationId])
+  @@map("kyc_records")
+  @@schema("onboarding")
+}
+
+model KycSession {
+  id                 String    @id
+  applicationId      String    @map("application_id")
+  provider           String
+  providerRequestId  String?   @map("provider_request_id")
+  templateName       String    @map("template_name")
+  status             String
+  lastProviderStatus String?   @map("last_provider_status")
+  pollCount          Int       @default(0) @map("poll_count")
+  safeErrorCategory  String?   @map("safe_error_category")
+  evidenceKey        String?   @map("evidence_key")
+  createdAt          DateTime  @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  completedAt        DateTime? @map("completed_at") @db.Timestamptz
+
+  @@index([applicationId, status])
+  @@index([providerRequestId])
+  @@map("kyc_sessions")
+  @@schema("onboarding")
+}
+
+model DocumentUpload {
+  id                  String   @id
+  applicationId       String   @map("application_id")
+  requirementId       String   @map("requirement_id")
+  objectKey           String   @map("object_key")
+  declaredContentType String   @map("declared_content_type")
+  declaredSizeBytes   Int      @map("declared_size_bytes")
+  status              String
+  expiresAt           DateTime @map("expires_at") @db.Timestamptz
+  createdAt           DateTime @map("created_at") @db.Timestamptz
+
+  @@index([applicationId])
+  @@map("document_uploads")
+  @@schema("onboarding")
+}
+
+model Document {
+  id                String   @id
+  applicationId     String   @map("application_id")
+  requirementId     String   @map("requirement_id")
+  documentType      String   @map("document_type")
+  files             Json
+  status            String
+  operationId       String   @map("operation_id")
+  safeErrorCategory String?  @map("safe_error_category")
+  createdAt         DateTime @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([applicationId, requirementId])
+  @@map("documents")
+  @@schema("onboarding")
+}
+
+model AdditionalVerification {
+  id                  String   @id
+  applicationId       String   @map("application_id")
+  type                String
+  status              String
+  selfieDocumentId    String?  @map("selfie_document_id")
+  referenceDocumentId String?  @map("reference_document_id")
+  providerSessionId   String?  @map("provider_session_id")
+  exemptionBasis      String?  @map("exemption_basis")
+  livenessScore       Float?   @map("liveness_score")
+  faceMatchConfidence Float?   @map("face_match_confidence")
+  thresholdVersion    String   @map("threshold_version")
+  safeErrorCategory   String?  @map("safe_error_category")
+  createdAt           DateTime @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([applicationId])
+  @@map("additional_verifications")
+  @@schema("onboarding")
+}
+
+model Task {
+  id            String    @id
+  applicationId String    @map("application_id")
+  category      String
+  status        String
+  details       Json?
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  resolvedAt    DateTime? @map("resolved_at") @db.Timestamptz
+
+  @@index([applicationId, status])
+  @@map("tasks")
+  @@schema("onboarding")
+}

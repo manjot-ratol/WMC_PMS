@@ -1,5 +1,15 @@
 import { Global, Module } from '@nestjs/common';
 import { ANALYTICS } from '../../application/ports/analytics.port';
+import { DOCUMENT_REPOSITORY } from '../../application/ports/document.repository.port';
+import { IDENTITY_REPOSITORY } from '../../application/ports/identity.repository.port';
+import {
+  KYC_RECORD_REPOSITORY,
+  KYC_SESSION_REPOSITORY,
+} from '../../application/ports/kyc.repository.port';
+import {
+  TASK_REPOSITORY,
+  VERIFICATION_REPOSITORY,
+} from '../../application/ports/verification.repository.port';
 import { APPLICATION_REPOSITORY } from '../../application/ports/application.repository.port';
 import { AUDIT } from '../../application/ports/audit.port';
 import { CHALLENGE_REPOSITORY } from '../../application/ports/challenge.repository.port';
@@ -14,6 +24,16 @@ import { OUTBOX } from '../../application/ports/outbox.port';
 import { UNIT_OF_WORK } from '../../application/ports/unit-of-work.port';
 import { PrismaService } from './prisma.service';
 import { AnalyticsOutboxRepository } from './repositories/analytics-outbox.repository';
+import { DocumentRepository } from './repositories/document.repository';
+import { IdentityRepository } from './repositories/identity.repository';
+import {
+  KycRecordRepository,
+  KycSessionRepository,
+} from './repositories/kyc.repository';
+import {
+  TaskRepository,
+  VerificationRepository,
+} from './repositories/verification.repository';
 import { ApplicationRepository } from './repositories/application.repository';
 import { AuditRepository } from './repositories/audit.repository';
 import { ChallengeRepository } from './repositories/challenge.repository';
@@ -43,6 +63,12 @@ import { PrismaUnitOfWork } from './unit-of-work';
     { provide: SESSION_REPOSITORY, useClass: SessionRepository },
     { provide: ELIGIBILITY_REPOSITORY, useClass: EligibilityRepository },
     { provide: ANALYTICS, useClass: AnalyticsOutboxRepository },
+    { provide: IDENTITY_REPOSITORY, useClass: IdentityRepository },
+    { provide: KYC_RECORD_REPOSITORY, useClass: KycRecordRepository },
+    { provide: KYC_SESSION_REPOSITORY, useClass: KycSessionRepository },
+    { provide: DOCUMENT_REPOSITORY, useClass: DocumentRepository },
+    { provide: VERIFICATION_REPOSITORY, useClass: VerificationRepository },
+    { provide: TASK_REPOSITORY, useClass: TaskRepository },
   ],
   exports: [
     CUSTOMER_REPOSITORY,
@@ -51,6 +77,12 @@ import { PrismaUnitOfWork } from './unit-of-work';
     SESSION_REPOSITORY,
     ELIGIBILITY_REPOSITORY,
     ANALYTICS,
+    IDENTITY_REPOSITORY,
+    KYC_RECORD_REPOSITORY,
+    KYC_SESSION_REPOSITORY,
+    DOCUMENT_REPOSITORY,
+    VERIFICATION_REPOSITORY,
+    TASK_REPOSITORY,
     PrismaService,
     UNIT_OF_WORK,
     OUTBOX,

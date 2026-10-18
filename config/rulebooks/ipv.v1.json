@@ -1,0 +1,8 @@
+{
+  "version": "ipv_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: thresholds are illustrative.",
+  "minLivenessScore": 70,
+  "minFaceMatchConfidence": 80,
+  "exemptWhenKraIpvFlag": true,
+  "maxSelfieAttempts": 3
+}
