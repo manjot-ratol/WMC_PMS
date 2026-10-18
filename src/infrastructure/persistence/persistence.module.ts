@@ -1,5 +1,12 @@
 import { Global, Module } from '@nestjs/common';
 import { ANALYTICS } from '../../application/ports/analytics.port';
+import { BANK_REPOSITORY } from '../../application/ports/bank.repository.port';
+import { COMPLIANCE_REPOSITORY } from '../../application/ports/compliance.repository.port';
+import { NOMINATION_REPOSITORY } from '../../application/ports/nomination.repository.port';
+import {
+  DECLARATIONS_REPOSITORY,
+  PROFILE_REPOSITORY,
+} from '../../application/ports/profile.repository.port';
 import { DOCUMENT_REPOSITORY } from '../../application/ports/document.repository.port';
 import { IDENTITY_REPOSITORY } from '../../application/ports/identity.repository.port';
 import {
@@ -24,6 +31,13 @@ import { OUTBOX } from '../../application/ports/outbox.port';
 import { UNIT_OF_WORK } from '../../application/ports/unit-of-work.port';
 import { PrismaService } from './prisma.service';
 import { AnalyticsOutboxRepository } from './repositories/analytics-outbox.repository';
+import { BankRepository } from './repositories/bank.repository';
+import { ComplianceRepository } from './repositories/compliance.repository';
+import { NominationRepository } from './repositories/nomination.repository';
+import {
+  DeclarationsRepository,
+  ProfileRepository,
+} from './repositories/profile.repository';
 import { DocumentRepository } from './repositories/document.repository';
 import { IdentityRepository } from './repositories/identity.repository';
 import {
@@ -69,6 +83,11 @@ import { PrismaUnitOfWork } from './unit-of-work';
     { provide: DOCUMENT_REPOSITORY, useClass: DocumentRepository },
     { provide: VERIFICATION_REPOSITORY, useClass: VerificationRepository },
     { provide: TASK_REPOSITORY, useClass: TaskRepository },
+    { provide: PROFILE_REPOSITORY, useClass: ProfileRepository },
+    { provide: DECLARATIONS_REPOSITORY, useClass: DeclarationsRepository },
+    { provide: BANK_REPOSITORY, useClass: BankRepository },
+    { provide: NOMINATION_REPOSITORY, useClass: NominationRepository },
+    { provide: COMPLIANCE_REPOSITORY, useClass: ComplianceRepository },
   ],
   exports: [
     CUSTOMER_REPOSITORY,
@@ -83,6 +102,11 @@ import { PrismaUnitOfWork } from './unit-of-work';
     DOCUMENT_REPOSITORY,
     VERIFICATION_REPOSITORY,
     TASK_REPOSITORY,
+    PROFILE_REPOSITORY,
+    DECLARATIONS_REPOSITORY,
+    BANK_REPOSITORY,
+    NOMINATION_REPOSITORY,
+    COMPLIANCE_REPOSITORY,
     PrismaService,
     UNIT_OF_WORK,
     OUTBOX,

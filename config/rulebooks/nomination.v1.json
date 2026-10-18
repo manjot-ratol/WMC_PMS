@@ -1,0 +1,6 @@
+{
+  "version": "nomination_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE",
+  "maxNominees": 3,
+  "relationships": ["SPOUSE", "SON", "DAUGHTER", "FATHER", "MOTHER", "BROTHER", "SISTER", "OTHER"]
+}

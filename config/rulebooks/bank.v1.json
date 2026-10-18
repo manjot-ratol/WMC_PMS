@@ -1,0 +1,8 @@
+{
+  "version": "bank_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: name-match thresholds are illustrative.",
+  "validationMode": "AUTO",
+  "verifiedMinScore": 70,
+  "reviewMinScore": 40,
+  "maxAttempts": 3
+}

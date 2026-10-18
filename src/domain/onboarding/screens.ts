@@ -11,6 +11,11 @@ export const SCREENS = [
   'DOCUMENT_UPLOAD',
   'IPV',
   'PROFILE',
+  'TAX_DECLARATIONS',
+  'BANK_DETAILS',
+  'BANK_PROGRESS',
+  'NOMINATION',
+  'INVESTMENT_PROFILE',
   'ASSISTED_ONBOARDING',
   'NOT_ELIGIBLE',
 ] as const;
@@ -23,6 +28,10 @@ export const STEP_IDS = [
   'IDENTITY',
   'KYC',
   'IPV',
+  'PROFILE',
+  'DECLARATIONS',
+  'BANK',
+  'NOMINATION',
 ] as const;
 export type StepId = (typeof STEP_IDS)[number];
 

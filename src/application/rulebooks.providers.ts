@@ -12,6 +12,16 @@ import {
   KYC_RELIANCE_RULEBOOK,
   loadKycRelianceRulebook,
 } from '../domain/kyc/kyc-reliance-rulebook';
+import { BANK_RULEBOOK, loadBankRulebook } from '../domain/bank/bank-account';
+import {
+  NOMINATION_RULEBOOK,
+  loadNominationRulebook,
+} from '../domain/nomination/nomination';
+import { TAX_RULEBOOK, loadTaxRulebook } from '../domain/profile/declarations';
+import {
+  PROFILE_RULEBOOK,
+  loadProfileRulebook,
+} from '../domain/profile/profile';
 
 /** Versioned configuration loaded once per process. */
 export const KycRelianceRulebookProviders: Provider[] = [
@@ -28,4 +38,8 @@ export const KycRelianceRulebookProviders: Provider[] = [
     useFactory: () => loadDocumentRequirementsRulebook(),
   },
   { provide: IPV_RULEBOOK, useFactory: () => loadIpvRulebook() },
+  { provide: PROFILE_RULEBOOK, useFactory: () => loadProfileRulebook() },
+  { provide: TAX_RULEBOOK, useFactory: () => loadTaxRulebook() },
+  { provide: BANK_RULEBOOK, useFactory: () => loadBankRulebook() },
+  { provide: NOMINATION_RULEBOOK, useFactory: () => loadNominationRulebook() },
 ];

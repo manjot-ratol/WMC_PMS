@@ -1,0 +1,8 @@
+{
+  "version": "tax_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE",
+  "homeCountry": "IN",
+  "tinUnavailableReasons": ["COUNTRY_DOES_NOT_ISSUE_TIN", "TIN_NOT_REQUIRED", "TIN_APPLIED_FOR"],
+  "pepDeclarations": ["NOT_PEP", "PEP", "RELATED_TO_PEP"],
+  "maxResidencies": 4
+}

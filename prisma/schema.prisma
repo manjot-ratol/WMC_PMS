@@ -7,7 +7,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["reliability", "identity", "onboarding"]
+  schemas  = ["reliability", "identity", "onboarding", "compliance"]
 }
 
 enum InboxStatus {
@@ -348,4 +348,127 @@ model Task {
   @@index([applicationId, status])
   @@map("tasks")
   @@schema("onboarding")
+}
+
+// ---------------- onboarding: profile, declarations, bank, nomination (phase 4) ----------------
+
+model CustomerProfile {
+  applicationId              String   @map("application_id")
+  version                    Int
+  occupation                 String
+  annualIncomeBand           String   @map("annual_income_band")
+  sourceOfFunds              Json     @map("source_of_funds")
+  sourceOfFundsExplanation   Bytes?   @map("source_of_funds_explanation")
+  evidenceRequired           Boolean  @map("evidence_required")
+  savedAt                    DateTime @map("saved_at") @db.Timestamptz
+
+  @@id([applicationId, version])
+  @@map("customer_profiles")
+  @@schema("onboarding")
+}
+
+model Declaration {
+  applicationId                 String   @map("application_id")
+  version                       Int
+  taxResidencies                Bytes    @map("tax_residencies")
+  pepDeclaration                String   @map("pep_declaration")
+  declarationVersion            String   @map("declaration_version")
+  additionalInformationRequired Boolean  @map("additional_information_required")
+  attestedAt                    DateTime @map("attested_at") @db.Timestamptz
+
+  @@id([applicationId, version])
+  @@map("declarations")
+  @@schema("onboarding")
+}
+
+model BankAccount {
+  id                 String   @id
+  applicationId      String   @map("application_id")
+  accountCiphertext  Bytes    @map("account_ciphertext")
+  accountFingerprint String   @map("account_fingerprint")
+  ifsc               String
+  holderName         String   @map("holder_name")
+  version            Int
+  createdAt          DateTime @map("created_at") @db.Timestamptz
+
+  @@index([applicationId, accountFingerprint])
+  @@map("bank_accounts")
+  @@schema("onboarding")
+}
+
+model BankVerification {
+  id                String   @id
+  applicationId     String   @map("application_id")
+  bankAccountId     String   @map("bank_account_id")
+  status            String
+  requiredActions   Json     @map("required_actions")
+  providerReference String?  @map("provider_reference")
+  evidenceKey       String?  @map("evidence_key")
+  safeErrorCategory String?  @map("safe_error_category")
+  createdAt         DateTime @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([applicationId, status])
+  @@map("bank_verifications")
+  @@schema("onboarding")
+}
+
+model Nomination {
+  applicationId      String   @map("application_id")
+  version            Int
+  choice             String
+  allocationMode     String?  @map("allocation_mode")
+  nomineesCiphertext Bytes    @map("nominees_ciphertext")
+  nomineeCount       Int      @map("nominee_count")
+  registrationStatus String   @map("registration_status")
+  savedAt            DateTime @map("saved_at") @db.Timestamptz
+
+  @@id([applicationId, version])
+  @@map("nominations")
+  @@schema("onboarding")
+}
+
+// ---------------- compliance (restricted) ----------------
+
+model ScreeningRun {
+  id                      String    @id
+  applicationId           String    @map("application_id")
+  identityVersion         Int       @map("identity_version")
+  screeningPolicyVersion  String    @map("screening_policy_version")
+  status                  String
+  suggestedAction         String?   @map("suggested_action")
+  providerRequestId       String?   @map("provider_request_id")
+  evidenceKey             String?   @map("evidence_key")
+  safeErrorCategory       String?   @map("safe_error_category")
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  completedAt             DateTime? @map("completed_at") @db.Timestamptz
+
+  @@index([applicationId, status])
+  @@index([status])
+  @@map("screening_runs")
+  @@schema("compliance")
+}
+
+model AmlAssessment {
+  id                 String    @id
+  applicationId      String    @map("application_id")
+  identityVersion    Int       @map("identity_version")
+  profileVersion     Int       @map("profile_version")
+  declarationVersion Int       @map("declaration_version")
+  policyVersion      String    @map("policy_version")
+  status             String
+  riskValue          String?   @map("risk_value")
+  nextReviewDate     DateTime? @map("next_review_date") @db.Date
+  providerRequestId  String?   @map("provider_request_id")
+  evidenceKey        String?   @map("evidence_key")
+  safeErrorCategory  String?   @map("safe_error_category")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  completedAt        DateTime? @map("completed_at") @db.Timestamptz
+
+  @@index([applicationId, status])
+  @@index([status])
+  @@map("aml_assessments")
+  @@schema("compliance")
 }

@@ -1,0 +1,22 @@
+{
+  "mappings": [
+    {
+      "name": "digio-bank-verify-match",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/digio/v4/client/verify/bank_account", "bodyPatterns": [{ "matchesJsonPath": "$[?(@.beneficiary_account_no =~ /9{4}[0-9]{8}/)]" }] },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "transformers": ["response-template"], "jsonBody": { "id": "FTI{{randomValue length=20 type='ALPHANUMERIC' uppercase=true}}", "verified": true, "verified_at": "2026-10-18 10:00:00", "beneficiary_name_with_bank": "VINOD KUMAR SINGH", "fuzzy_match_score": 92, "fuzzy_match_result": true, "validation_mode": "PENNY_LESS" } }
+    },
+    {
+      "name": "digio-bank-verify-low-score",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/digio/v4/client/verify/bank_account", "bodyPatterns": [{ "matchesJsonPath": "$[?(@.beneficiary_account_no =~ /5{4}[0-9]{8}/)]" }] },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "jsonBody": { "id": "FTILOW000000000000000001", "verified": true, "verified_at": "2026-10-18 10:00:00", "beneficiary_name_with_bank": "V SINGH", "fuzzy_match_score": 55, "fuzzy_match_result": false, "validation_mode": "PENNY_DROP" } }
+    },
+    {
+      "name": "digio-bank-verify-invalid",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/digio/v4/client/verify/bank_account", "bodyPatterns": [{ "matchesJsonPath": "$[?(@.beneficiary_account_no =~ /1{4}[0-9]{8}/)]" }] },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "jsonBody": { "id": "FTIBAD000000000000000001", "verified": false, "error_msg": "Invalid beneficiary account details", "error_code": "INVALID_ACCOUNT" } }
+    }
+  ]
+}

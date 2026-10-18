@@ -3,6 +3,7 @@ import { Module, OnModuleInit } from '@nestjs/common';
 import { KycRelianceRulebookProviders } from '../rulebooks.providers';
 import { EventRouter } from '../../infrastructure/queue/event-router';
 import { ALL_QUEUES, QUEUES } from '../../infrastructure/queue/queue.names';
+import { BankVerificationProcessor } from './bank-verification.processor';
 import { DigioWebhookProcessor } from './digio-webhook.processor';
 import { DocumentProcessor } from './document.processor';
 import { IpvProcessor } from './ipv.processor';
@@ -19,6 +20,7 @@ import { KycStatusPollProcessor, POLL_JOB } from './kyc-status-poll.processor';
     DocumentProcessor,
     IpvProcessor,
     DigioWebhookProcessor,
+    BankVerificationProcessor,
   ],
 })
 export class JobsModule implements OnModuleInit {
@@ -35,6 +37,10 @@ export class JobsModule implements OnModuleInit {
     });
     this.router.register('DocumentSubmitted', {
       queue: QUEUES.DOCUMENTS,
+      jobName: 'verify',
+    });
+    this.router.register('BankVerificationRequested', {
+      queue: QUEUES.BANK,
       jobName: 'verify',
     });
     this.router.register('AdditionalVerificationRequested', {

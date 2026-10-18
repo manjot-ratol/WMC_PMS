@@ -1,40 +1,702 @@
 {
-  "info": {
-    "name": "WMC PMS Onboarding - screens 01-05",
-    "_postman_id": "7c1f1d3e-5a6b-4b0f-9f6e-wmcpms0000002",
-    "description": "Runs the onboarding journey against the local backend (`make up` + `npm run start:api`).\n\nOTP delivery locally: the SMS sender only logs a masked destination, so read the phone OTP from the API log at debug level (`LOG_LEVEL=debug`, event `sms.sent` is masked; the code is NOT logged). For local testing use the Mailpit UI (http://localhost:8025) for email codes, and for phone codes run with `APP_ENV=local` and read the code from the MessageSpy via the SIT harness, or use the SIT suite (`make sit`) which drives the whole journey automatically.\n\nVariables chain automatically via test scripts: preauth_token, challenge_id, session_token, application_id, email_challenge_id.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ "info": {
+  "name": "WMC PMS Onboarding - screens 01-16",
+  "_postman_id": "7c1f1d3e-5a6b-4b0f-9f6e-wmcpms0000002",
+  "description": "Runs the onboarding journey against the local backend (`make up` + `npm run start:api`).\n\nOTP delivery locally: the SMS sender only logs a masked destination, so read the phone OTP from the API log at debug level (`LOG_LEVEL=debug`, event `sms.sent` is masked; the code is NOT logged). For local testing use the Mailpit UI (http://localhost:8025) for email codes, and for phone codes run with `APP_ENV=local` and read the code from the MessageSpy via the SIT harness, or use the SIT suite (`make sit`) which drives the whole journey automatically.\n\nVariables chain automatically via test scripts: preauth_token, challenge_id, session_token, application_id, email_challenge_id.",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+ },
+ "variable": [
+  {
+   "key": "baseUrl",
+   "value": "http://localhost:3000"
   },
-  "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "phone", "value": "9000000001" },
-    { "key": "email", "value": "customer@example.com" },
-    { "key": "otp", "value": "000000" },
-    { "key": "preauth_token", "value": "" },
-    { "key": "challenge_id", "value": "" },
-    { "key": "session_token", "value": "" },
-    { "key": "application_id", "value": "" },
-    { "key": "email_challenge_id", "value": "" }
-  ],
-  "event": [
-    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.request.headers.upsert({ key: 'Idempotency-Key', value: pm.variables.replaceIn('{{$guid}}') });", "pm.request.headers.upsert({ key: 'X-Correlation-ID', value: pm.variables.replaceIn('{{$guid}}') });"] } }
-  ],
-  "item": [
-    { "name": "Health", "item": [
-      { "name": "GET /health", "request": { "method": "GET", "url": "{{baseUrl}}/health" } },
-      { "name": "GET /health/ready", "request": { "method": "GET", "url": "{{baseUrl}}/health/ready" } }
-    ] },
-    { "name": "01 Phone challenge", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('202', () => pm.response.to.have.status(202));", "const b = pm.response.json(); pm.collectionVariables.set('preauth_token', b.preauth_token); pm.collectionVariables.set('challenge_id', b.challenge_id);"] } }],
-      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/v1/auth/phone/challenges", "body": { "mode": "raw", "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"purpose\": \"PMS_ONBOARDING\",\n  \"privacy_notice_version\": \"privacy_v1\"\n}" } } },
-    { "name": "02 Verify phone OTP", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));", "const b = pm.response.json(); pm.collectionVariables.set('session_token', b.session_token); pm.collectionVariables.set('application_id', b.application_id);"] } }],
-      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{preauth_token}}" }], "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/verify", "body": { "mode": "raw", "raw": "{\n  \"otp\": \"{{otp}}\"\n}" } } },
-    { "name": "02 Resend phone OTP", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) { pm.collectionVariables.set('challenge_id', pm.response.json().challenge_id); }"] } }],
-      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{preauth_token}}" }], "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/resend", "body": { "mode": "raw", "raw": "{}" } } },
-    { "name": "Resume: GET application", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}" } },
-    { "name": "03 Email challenge", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('202', () => pm.response.to.have.status(202));", "pm.collectionVariables.set('email_challenge_id', pm.response.json().challenge_id);"] } }],
-      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges", "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" } } },
-    { "name": "04 Verify email OTP (code from Mailpit http://localhost:8025)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/verify", "body": { "mode": "raw", "raw": "{\n  \"otp\": \"{{otp}}\"\n}" } } },
-    { "name": "04 Resend email OTP", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/resend", "body": { "mode": "raw", "raw": "{}" } } },
-    { "name": "05 Eligibility", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/eligibility", "body": { "mode": "raw", "raw": "{\n  \"customer_type\": \"INDIVIDUAL\",\n  \"residential_status\": \"RESIDENT\",\n  \"intended_investment_inr\": 5000000,\n  \"distribution_route\": \"DIRECT\"\n}" } } }
-  ]
+  {
+   "key": "phone",
+   "value": "9000000001"
+  },
+  {
+   "key": "email",
+   "value": "customer@example.com"
+  },
+  {
+   "key": "otp",
+   "value": "000000"
+  },
+  {
+   "key": "preauth_token",
+   "value": ""
+  },
+  {
+   "key": "challenge_id",
+   "value": ""
+  },
+  {
+   "key": "session_token",
+   "value": ""
+  },
+  {
+   "key": "application_id",
+   "value": ""
+  },
+  {
+   "key": "email_challenge_id",
+   "value": ""
+  },
+  {
+   "key": "pan",
+   "value": "ABJPA1234J"
+  },
+  {
+   "key": "kyc_record_version",
+   "value": "1"
+  },
+  {
+   "key": "kyc_session_id",
+   "value": ""
+  },
+  {
+   "key": "upload_id",
+   "value": ""
+  },
+  {
+   "key": "upload_url",
+   "value": ""
+  },
+  {
+   "key": "profile_version",
+   "value": "0"
+  },
+  {
+   "key": "bank_verification_id",
+   "value": ""
+  },
+  {
+   "key": "document_id",
+   "value": ""
+  }
+ ],
+ "event": [
+  {
+   "listen": "prerequest",
+   "script": {
+    "type": "text/javascript",
+    "exec": [
+     "pm.request.headers.upsert({ key: 'Idempotency-Key', value: pm.variables.replaceIn('{{$guid}}') });",
+     "pm.request.headers.upsert({ key: 'X-Correlation-ID', value: pm.variables.replaceIn('{{$guid}}') });"
+    ]
+   }
+  }
+ ],
+ "item": [
+  {
+   "name": "Health",
+   "item": [
+    {
+     "name": "GET /health",
+     "request": {
+      "method": "GET",
+      "url": "{{baseUrl}}/health"
+     }
+    },
+    {
+     "name": "GET /health/ready",
+     "request": {
+      "method": "GET",
+      "url": "{{baseUrl}}/health/ready"
+     }
+    }
+   ]
+  },
+  {
+   "name": "01 Phone challenge",
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('202', () => pm.response.to.have.status(202));",
+       "const b = pm.response.json(); pm.collectionVariables.set('preauth_token', b.preauth_token); pm.collectionVariables.set('challenge_id', b.challenge_id);"
+      ]
+     }
+    }
+   ],
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/auth/phone/challenges",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"purpose\": \"PMS_ONBOARDING\",\n  \"privacy_notice_version\": \"privacy_v1\"\n}"
+    }
+   }
+  },
+  {
+   "name": "02 Verify phone OTP",
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));",
+       "const b = pm.response.json(); pm.collectionVariables.set('session_token', b.session_token); pm.collectionVariables.set('application_id', b.application_id);"
+      ]
+     }
+    }
+   ],
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{preauth_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/verify",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"otp\": \"{{otp}}\"\n}"
+    }
+   }
+  },
+  {
+   "name": "02 Resend phone OTP",
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "if (pm.response.code === 200) { pm.collectionVariables.set('challenge_id', pm.response.json().challenge_id); }"
+      ]
+     }
+    }
+   ],
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{preauth_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/resend",
+    "body": {
+     "mode": "raw",
+     "raw": "{}"
+    }
+   }
+  },
+  {
+   "name": "Resume: GET application",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}"
+   }
+  },
+  {
+   "name": "03 Email challenge",
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('202', () => pm.response.to.have.status(202));",
+       "pm.collectionVariables.set('email_challenge_id', pm.response.json().challenge_id);"
+      ]
+     }
+    }
+   ],
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"email\": \"{{email}}\"\n}"
+    }
+   }
+  },
+  {
+   "name": "04 Verify email OTP (code from Mailpit http://localhost:8025)",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/verify",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"otp\": \"{{otp}}\"\n}"
+    }
+   }
+  },
+  {
+   "name": "04 Resend email OTP",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/resend",
+    "body": {
+     "mode": "raw",
+     "raw": "{}"
+    }
+   }
+  },
+  {
+   "name": "05 Eligibility",
+   "request": {
+    "method": "PUT",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/eligibility",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"customer_type\": \"INDIVIDUAL\",\n  \"residential_status\": \"RESIDENT\",\n  \"intended_investment_inr\": 5000000,\n  \"distribution_route\": \"DIRECT\"\n}"
+    }
+   }
+  },
+  {
+   "name": "06 Submit identity (PAN)",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/identity-verifications",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"pan\": \"{{pan}}\",\n  \"legal_name\": \"Vinod Kumar Singh\",\n  \"date_of_birth\": \"1955-08-16\",\n  \"permission_version\": \"kyc_fetch_v1\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('202', () => pm.response.to.have.status(202));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "07 KYC status (poll)",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "const b = pm.response.json(); if (b.kyc_record_version) pm.collectionVariables.set('kyc_record_version', b.kyc_record_version);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "08 Confirm existing KYC",
+   "request": {
+    "method": "PUT",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/confirmation",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"kyc_record_version\": \"{{kyc_record_version}}\",\n  \"details_confirmed\": true,\n  \"changes\": {}\n}"
+    }
+   }
+  },
+  {
+   "name": "09 Create digital KYC session",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/sessions",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"method\": \"DIGITAL_DOCUMENTS\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "const b = pm.response.json(); if (b.session_id) pm.collectionVariables.set('kyc_session_id', b.session_id);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "10 Authorise document upload",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/document-uploads",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"requirement_id\": \"ADDRESS_PROOF\",\n  \"content_type\": \"application/pdf\",\n  \"size_bytes\": 102400\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "const b = pm.response.json(); if (b.upload_id) { pm.collectionVariables.set('upload_id', b.upload_id); pm.collectionVariables.set('upload_url', b.upload_url); }"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "10 Submit document",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/documents",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"requirement_id\": \"ADDRESS_PROOF\",\n  \"document_type\": \"AADHAAR\",\n  \"files\": [\n    {\n      \"upload_id\": \"{{upload_id}}\",\n      \"side\": \"FRONT\"\n    }\n  ]\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "const b = pm.response.json(); if (b.document_id) pm.collectionVariables.set('document_id', b.document_id);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "11 Request additional verification (IPV)",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/additional-verifications",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"verification_type\": \"SELFIE_LIVENESS\",\n  \"selfie_document_id\": \"{{document_id}}\"\n}"
+    }
+   }
+  },
+  {
+   "name": "12 Save profile",
+   "request": {
+    "method": "PUT",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/profile",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"occupation\": \"PRIVATE_SECTOR\",\n  \"annual_income_band\": \"INR_10L_25L\",\n  \"source_of_funds\": [\n    \"SALARY\"\n  ],\n  \"profile_version\": \"{{profile_version}}\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));",
+       "const b = pm.response.json(); if (b.profile_version) pm.collectionVariables.set('profile_version', b.profile_version);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "13 Save declarations",
+   "request": {
+    "method": "PUT",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/declarations",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"tax_residencies\": [\n    {\n      \"country\": \"IN\",\n      \"tin\": \"{{pan}}\"\n    }\n  ],\n  \"pep_declaration\": \"NOT_PEP\",\n  \"declaration_version\": \"declarations_v1\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "14 Start bank verification",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/bank-verifications",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"account_number\": \"999912345678\",\n  \"account_number_confirmation\": \"999912345678\",\n  \"ifsc\": \"HDFC0001234\",\n  \"holder_name\": \"Vinod Kumar Singh\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('202', () => pm.response.to.have.status(202));",
+       "const b = pm.response.json(); pm.collectionVariables.set('bank_verification_id', b.verification_id);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "15 Bank verification status (poll)",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/bank-verifications/{{bank_verification_id}}"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "16 Save nomination",
+   "request": {
+    "method": "PUT",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/nomination",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"choice\": \"NOMINATE\",\n  \"allocation_mode\": \"EQUAL\",\n  \"nominees\": [\n    {\n      \"full_name\": \"Asha Singh\",\n      \"relationship\": \"SPOUSE\",\n      \"is_minor\": false\n    }\n  ]\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  }
+ ]
 }

@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import type Redis from 'ioredis';
 
-/** Lazily creates one BullMQ Queue per name on the shared connection. */
+/** Lazily creates one BullMQ Queue per name on the shared connection, and owns that connection's shutdown. */
 @Injectable()
-export class QueueRegistry {
+export class QueueRegistry implements OnModuleDestroy {
   private readonly queues = new Map<string, Queue>();
 
   constructor(private readonly connection: Redis) {}
@@ -21,5 +21,11 @@ export class QueueRegistry {
   async closeAll(): Promise<void> {
     await Promise.all([...this.queues.values()].map((q) => q.close()));
     this.queues.clear();
+  }
+
+  /** Queues share one ioredis client; closing them does not close it, so the registry does. */
+  async onModuleDestroy(): Promise<void> {
+    await this.closeAll();
+    if (this.connection.status !== 'end') await this.connection.quit();
   }
 }

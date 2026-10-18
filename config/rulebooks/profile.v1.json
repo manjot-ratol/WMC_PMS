@@ -1,0 +1,9 @@
+{
+  "version": "profile_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE",
+  "occupations": ["PRIVATE_SECTOR", "PUBLIC_SECTOR", "BUSINESS", "PROFESSIONAL", "AGRICULTURIST", "RETIRED", "HOUSEWIFE", "STUDENT", "GOVERNMENT_SERVICE", "OTHERS"],
+  "annualIncomeBands": ["INR_BELOW_1L", "INR_1L_5L", "INR_5L_10L", "INR_10L_25L", "INR_25L_1CR", "INR_ABOVE_1CR"],
+  "sourcesOfFunds": ["SALARY", "BUSINESS_INCOME", "INVESTMENTS", "RENTAL_INCOME", "INHERITANCE", "GIFT", "SALE_OF_ASSETS", "OTHER"],
+  "explanationRequiredFor": ["OTHER", "INHERITANCE", "GIFT"],
+  "evidenceRequiredWhen": { "incomeBands": ["INR_ABOVE_1CR"], "sources": ["INHERITANCE", "GIFT", "SALE_OF_ASSETS"] }
+}

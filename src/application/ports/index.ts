@@ -26,3 +26,8 @@ export * from './document.repository.port';
 export * from './identity.repository.port';
 export * from './kyc.repository.port';
 export * from './verification.repository.port';
+export * from './bank-gateway.port';
+export * from './bank.repository.port';
+export * from './compliance.repository.port';
+export * from './nomination.repository.port';
+export * from './profile.repository.port';

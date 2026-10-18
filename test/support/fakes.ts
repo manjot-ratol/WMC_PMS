@@ -603,3 +603,158 @@ export class FakeInbox implements InboxPort {
     return Promise.resolve();
   }
 }
+
+/* ---------- Phase 4 fakes ---------- */
+import type { BankRepositoryPort } from '../../src/application/ports/bank.repository.port';
+import type {
+  AmlAssessmentRecord,
+  ComplianceRepositoryPort,
+  ScreeningRunRecord,
+} from '../../src/application/ports/compliance.repository.port';
+import type { NominationRepositoryPort } from '../../src/application/ports/nomination.repository.port';
+import type {
+  DeclarationsRepositoryPort,
+  ProfileRepositoryPort,
+} from '../../src/application/ports/profile.repository.port';
+import type {
+  BankAccount,
+  BankVerification,
+} from '../../src/domain/bank/bank-account';
+import type { Nomination } from '../../src/domain/nomination/nomination';
+import type { Declarations } from '../../src/domain/profile/declarations';
+import type { CustomerProfile } from '../../src/domain/profile/profile';
+
+export class FakeProfiles implements ProfileRepositoryPort {
+  readonly rows: CustomerProfile[] = [];
+  append(p: CustomerProfile): Promise<void> {
+    this.rows.push(p);
+    return Promise.resolve();
+  }
+  latest(applicationId: string): Promise<CustomerProfile | null> {
+    return Promise.resolve(
+      [...this.rows].reverse().find((r) => r.applicationId === applicationId) ??
+        null,
+    );
+  }
+}
+export class FakeDeclarations implements DeclarationsRepositoryPort {
+  readonly rows: Declarations[] = [];
+  append(d: Declarations): Promise<void> {
+    this.rows.push(d);
+    return Promise.resolve();
+  }
+  latest(applicationId: string): Promise<Declarations | null> {
+    return Promise.resolve(
+      [...this.rows].reverse().find((r) => r.applicationId === applicationId) ??
+        null,
+    );
+  }
+}
+export class FakeBank implements BankRepositoryPort {
+  readonly accounts = new Map<string, BankAccount>();
+  readonly verifications = new Map<string, BankVerification>();
+  constructor(private readonly fpOf: (acc: string) => string) {}
+  createAccount(a: BankAccount): Promise<void> {
+    this.accounts.set(a.id, a);
+    return Promise.resolve();
+  }
+  findAccount(id: string): Promise<BankAccount | null> {
+    return Promise.resolve(this.accounts.get(id) ?? null);
+  }
+  findAccountByFingerprint(
+    applicationId: string,
+    fp: string,
+  ): Promise<BankAccount | null> {
+    return Promise.resolve(
+      [...this.accounts.values()]
+        .reverse()
+        .find(
+          (a) =>
+            a.applicationId === applicationId &&
+            this.fpOf(a.accountNumber) === fp,
+        ) ?? null,
+    );
+  }
+  createVerification(v: BankVerification): Promise<void> {
+    this.verifications.set(v.id, v);
+    return Promise.resolve();
+  }
+  findVerification(id: string): Promise<BankVerification | null> {
+    return Promise.resolve(this.verifications.get(id) ?? null);
+  }
+  latestVerification(applicationId: string): Promise<BankVerification | null> {
+    return Promise.resolve(
+      [...this.verifications.values()]
+        .reverse()
+        .find((v) => v.applicationId === applicationId) ?? null,
+    );
+  }
+  updateVerification(v: BankVerification): Promise<void> {
+    this.verifications.set(v.id, v);
+    return Promise.resolve();
+  }
+  countVerifications(applicationId: string): Promise<number> {
+    return Promise.resolve(
+      [...this.verifications.values()].filter(
+        (v) => v.applicationId === applicationId,
+      ).length,
+    );
+  }
+}
+export class FakeNominations implements NominationRepositoryPort {
+  readonly rows: Nomination[] = [];
+  append(n: Nomination): Promise<void> {
+    this.rows.push(n);
+    return Promise.resolve();
+  }
+  latest(applicationId: string): Promise<Nomination | null> {
+    return Promise.resolve(
+      [...this.rows].reverse().find((r) => r.applicationId === applicationId) ??
+        null,
+    );
+  }
+}
+export class FakeCompliance implements ComplianceRepositoryPort {
+  readonly runs: ScreeningRunRecord[] = [];
+  readonly assessments: AmlAssessmentRecord[] = [];
+  createScreeningRun(r: ScreeningRunRecord): Promise<void> {
+    this.runs.push(r);
+    return Promise.resolve();
+  }
+  createAmlAssessment(a: AmlAssessmentRecord): Promise<void> {
+    this.assessments.push(a);
+    return Promise.resolve();
+  }
+  supersedeOpen(applicationId: string): Promise<void> {
+    for (const r of this.runs)
+      if (
+        r.applicationId === applicationId &&
+        (r.status === 'QUEUED' || r.status === 'RUNNING')
+      )
+        r.status = 'SUPERSEDED';
+    for (const a of this.assessments)
+      if (
+        a.applicationId === applicationId &&
+        (a.status === 'QUEUED' || a.status === 'RUNNING')
+      )
+        a.status = 'SUPERSEDED';
+    return Promise.resolve();
+  }
+  latestScreeningRun(
+    applicationId: string,
+  ): Promise<ScreeningRunRecord | null> {
+    return Promise.resolve(
+      [...this.runs].reverse().find((r) => r.applicationId === applicationId) ??
+        null,
+    );
+  }
+  latestAmlAssessment(
+    applicationId: string,
+  ): Promise<AmlAssessmentRecord | null> {
+    return Promise.resolve(
+      [...this.assessments]
+        .reverse()
+        .find((r) => r.applicationId === applicationId) ?? null,
+    );
+  }
+}

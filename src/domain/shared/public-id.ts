@@ -13,4 +13,8 @@ export const ID_PREFIX = {
   document: 'doc',
   verification: 'av',
   task: 'task',
+  bankAccount: 'ba',
+  bankVerification: 'bv',
+  screeningRun: 'sr',
+  amlAssessment: 'aml',
 } as const;
