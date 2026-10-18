@@ -29,8 +29,10 @@ npm-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# env
+# env (real credentials live only in .env; the test and docker profiles hold mock values and are tracked)
 .env
 .env.*
 !.env.example
+!.env.test
+!.env.docker
 
