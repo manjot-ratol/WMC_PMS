@@ -1,4 +1,5 @@
-# Local infrastructure for wmc_pms. `make up` starts infra only; `make app-up` adds api + worker.
+# wmc_pms local stack. `docker compose up -d` = everything (infra + migrate + api + worker + TrackWizz mock) on mocked partners.
+# `make up` starts infra only (for running the app from source).
 services:
   postgres:
     image: postgres:16-alpine
@@ -58,37 +59,61 @@ services:
     image: axllent/mailpit:latest
     ports: ["8025:8025", "1025:1025"]
 
-  api:
-    profiles: ["app"]
+  trackwizz-mock:
+    image: ${WMC_PMS_IMAGE:-wmc-pms:local}
     build: .
-    env_file: .env
+    command: ["mock"]
     environment:
-      DATABASE_URL: postgresql://wmc:wmc@postgres:5432/wmc_pms
-      REDIS_URL: redis://redis:6379/0
-      STORAGE_ENDPOINT: http://minio:9000
-      SMTP_HOST: mailpit
-    ports: ["3000:3000"]
+      TRACKWIZZ_MOCK_HOST: 0.0.0.0
+      TRACKWIZZ_MOCK_PORT: "8099"
+    ports: ["8099:8099"]
+
+  migrate:
+    image: ${WMC_PMS_IMAGE:-wmc-pms:local}
+    build: .
+    command: ["migrate"]
+    env_file: ${WMC_PMS_ENV_FILE:-.env.docker}
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
-  worker:
-    profiles: ["app"]
+  api:
+    image: ${WMC_PMS_IMAGE:-wmc-pms:local}
     build: .
-    command: ["node", "dist/app/worker.js"]
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql://wmc:wmc@postgres:5432/wmc_pms
-      REDIS_URL: redis://redis:6379/0
-      STORAGE_ENDPOINT: http://minio:9000
-      SMTP_HOST: mailpit
+    command: ["api"]
+    env_file: ${WMC_PMS_ENV_FILE:-.env.docker}
+    ports: ["${WMC_PMS_API_PORT:-3000}:3000"]
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  worker:
+    image: ${WMC_PMS_IMAGE:-wmc-pms:local}
+    build: .
+    command: ["worker"]
+    env_file: ${WMC_PMS_ENV_FILE:-.env.docker}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+      trackwizz-mock:
+        condition: service_started
 
 volumes:
   pgdata:

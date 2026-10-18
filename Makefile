@@ -21,7 +21,10 @@ sit: up
 	npm run test:sit
 
 app-up:
-	docker compose --profile app up --build
+	docker compose up --build -d
+
+image:
+	docker build -t wmc-pms:local .
 
 lint:
 	npm run lint

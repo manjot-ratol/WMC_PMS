@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { TrackWizzMock } from '../../../tools/trackwizz-mock/server';
+import { TrackWizzMock } from '../../../src/infrastructure/partners/trackwizz/trackwizz-mock.server';
 
 const dir = path.resolve(__dirname, '..', '..', 'fixtures', 'trackwizz');
 /** The in-process AS501 stand-in used by every SIT suite that runs the worker (real crypto path with test keys). */

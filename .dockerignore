@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.git
+.env
+.env.*
+!.env.docker
+*.log
+docs
+postman
+tools/wiremock/__files

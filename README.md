@@ -91,3 +91,9 @@ Central UAT credentials are supplied by those vendors. Put them in `.env`.
 3. Import `postman/wmc_pms.postman_collection.json` and set `internal_token` to `INTERNAL_SERVICE_TOKEN` from `.env`. Folders follow the screens (01–25), then internal feeds, reviewer and simulated webhooks; test scripts capture ids and tokens into collection variables as you go.
 4. OTPs are never logged. Use `GET /internal/v1/dev/otps?to=<phone or email>` (service token, non-production only; wired in the collection as "Dev: read last … OTP"), or Mailpit for email.
 5. Mock data: PAN `ABJP?####J` → existing KRA record (REUSE route), `NORP?####X` → no record (FRESH route), use a fresh PAN per application; bank account `9999…` → VERIFIED, `5555…` → REVIEW_REQUIRED, `1111…` → ACTION_REQUIRED; the eSign stub reports completion on the first poll, so signing executes within ~30 s; accounts and receipts come from the internal feeds folder.
+
+## Docker (everything in containers)
+
+`docker compose up -d` builds the image and starts the whole stack on mocked partners: postgres, redis, minio, wiremock, mailpit, a one-shot `migrate` job (`prisma migrate deploy`), `api` (3000), `worker` and `trackwizz-mock` (8099). Configuration comes from `.env.docker` (no real credentials). One image, four entry points via `docker/entrypoint.sh`: `api`, `worker`, `mock`, `migrate`.
+
+To hand the stack to someone without the repo: `docker build -t wmc-pms:0.1.0 . && docker save wmc-pms:0.1.0 | gzip > wmc-pms-0.1.0.tar.gz`, and ship it with `docker-compose.yml` (build lines removed), `.env.docker`, `tools/wiremock/mappings`, `tools/postgres/init` and the Postman collection. They run `docker load -i wmc-pms-0.1.0.tar.gz && docker compose up -d`.

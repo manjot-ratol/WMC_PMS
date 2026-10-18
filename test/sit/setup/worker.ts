@@ -2,7 +2,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { createWorkerContext } from '../../../src/app/bootstrap';
 import { loadTestEnv } from '../../support/env';
 import { createTrackWizzMock } from './trackwizz';
-import type { TrackWizzMock } from '../../../tools/trackwizz-mock/server';
+import type { TrackWizzMock } from '../../../src/infrastructure/partners/trackwizz/trackwizz-mock.server';
 
 /** Boots the real worker (BullMQ consumers + outbox dispatcher) in-process for SIT, with the TrackWizz mock beside it. */
 export async function startSitWorker(): Promise<{

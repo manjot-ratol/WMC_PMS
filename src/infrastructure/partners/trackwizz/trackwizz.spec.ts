@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import nock from 'nock';
 import { silentLogger } from '../../../../test/support/fakes';
-import { TrackWizzMock } from '../../../../tools/trackwizz-mock/server';
+import { TrackWizzMock } from './trackwizz-mock.server';
 import { CorrelationStore } from '../../../common/correlation/correlation.store';
 import { CircuitBreakerRegistry } from '../../../common/http/circuit-breaker.registry';
 import { HttpClientService } from '../../../common/http/http-client.service';

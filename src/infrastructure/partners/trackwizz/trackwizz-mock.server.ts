@@ -1,9 +1,9 @@
 import * as http from 'node:http';
-import type { As501Response } from '../../src/domain/compliance/as501';
+import type { As501Response } from '../../../domain/compliance/as501';
 import {
   TrackWizzEnvelope,
   type TrackWizzCryptoProfile,
-} from '../../src/infrastructure/partners/trackwizz/trackwizz-envelope';
+} from './trackwizz-envelope';
 
 export type Scenario =
   | 'NO_HITS'
@@ -15,6 +15,8 @@ export type Scenario =
   | 'BAD_SIGNATURE';
 export interface MockOptions {
   port: number;
+  /** Bind address; 127.0.0.1 for tests, 0.0.0.0 inside containers. */
+  host?: string;
   /** The mock plays TrackWizz: it signs with TrackWizz's private key and decrypts with it. */
   theirPrivateKeyPem: string;
   /** Our public key, used by the mock to wrap the session key for us and to verify our signature. */
@@ -95,7 +97,9 @@ export class TrackWizzMock {
       });
     });
     return new Promise((resolve) =>
-      this.server!.listen(this.opts.port, '127.0.0.1', () => resolve()),
+      this.server!.listen(this.opts.port, this.opts.host ?? '127.0.0.1', () =>
+        resolve(),
+      ),
     );
   }
   stop(): Promise<void> {

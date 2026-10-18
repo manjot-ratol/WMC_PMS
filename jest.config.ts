@@ -15,6 +15,8 @@ const config: Config = {
     '!src/**/index.ts',
     '!src/app/main.ts',
     '!src/app/worker.ts',
+    '!src/app/trackwizz-mock.ts',
+    '!src/infrastructure/partners/trackwizz/trackwizz-mock.server.ts',
     '!src/generated/**',
   ],
   coverageDirectory: 'coverage',

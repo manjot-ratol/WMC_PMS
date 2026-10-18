@@ -520,7 +520,7 @@
       "description": "Only when 07 returned EXISTING_RECORD_AVAILABLE. Stale version \u2192 409.",
       "body": {
        "mode": "raw",
-       "raw": "{\n  \"kyc_record_version\": \"{{kyc_record_version}}\",\n  \"details_confirmed\": true,\n  \"changes\": {}\n}",
+       "raw": "{\n  \"kyc_record_version\": {{kyc_record_version}},\n  \"details_confirmed\": true,\n  \"changes\": {}\n}",
        "options": {
         "raw": {
          "language": "json"
@@ -734,7 +734,7 @@
       "description": "Start with profile_version 0. Re-saving with the old version \u2192 409.",
       "body": {
        "mode": "raw",
-       "raw": "{\n  \"occupation\": \"PRIVATE_SECTOR\",\n  \"annual_income_band\": \"INR_10L_25L\",\n  \"source_of_funds\": [\n    \"SALARY\"\n  ],\n  \"profile_version\": \"{{profile_version}}\"\n}",
+       "raw": "{\n  \"occupation\": \"PRIVATE_SECTOR\",\n  \"annual_income_band\": \"INR_10L_25L\",\n  \"source_of_funds\": [\n    \"SALARY\"\n  ],\n  \"profile_version\": {{profile_version}}\n}",
        "options": {
         "raw": {
          "language": "json"
@@ -1136,7 +1136,7 @@
       "description": "",
       "body": {
        "mode": "raw",
-       "raw": "{\n  \"application_version\": \"{{application_version}}\",\n  \"document_pack_version\": 1,\n  \"details_confirmed\": true\n}",
+       "raw": "{\n  \"application_version\": {{application_version}},\n  \"document_pack_version\": 1,\n  \"details_confirmed\": true\n}",
        "options": {
         "raw": {
          "language": "json"

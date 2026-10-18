@@ -150,8 +150,16 @@ export class AmlAssessmentProcessor extends BaseProcessor<AmlJobPayload> {
       if (
         !(err instanceof DependencyUnavailableError) &&
         !(err instanceof PartnerRejectedError)
-      )
+      ) {
+        // Never leave an assessment RUNNING: a retry would skip it forever. Record, then surface the bug.
+        await this.compliance.updateAmlAssessment({
+          ...a,
+          status: 'ERROR',
+          safeErrorCategory: 'unexpected_error',
+          completedAt: now,
+        });
         throw err;
+      }
       const detail = (err.details as { category?: string } | undefined)
         ?.category;
       const category =

@@ -526,6 +526,10 @@ describe('ScreeningProcessor', () => {
     await expect(
       b.screening.handle({ payload: { screeningRunId: id5 } }, job()),
     ).rejects.toThrow('boom');
+    expect(await b.d.compliance.findScreeningRun(id5)).toMatchObject({
+      status: 'ERROR',
+      safeErrorCategory: 'unexpected_error',
+    });
     await b.screening.handle({}, job());
     await b.screening.handle({ payload: { screeningRunId: 'sr_nope' } }, job());
     b.d.identities.rows.length = 0;
@@ -639,6 +643,10 @@ describe('AmlAssessmentProcessor', () => {
     await expect(
       b.aml.handle({ payload: { assessmentId: id4 } }, job()),
     ).rejects.toThrow('boom');
+    expect(await b.d.compliance.findAmlAssessment(id4)).toMatchObject({
+      status: 'ERROR',
+      safeErrorCategory: 'unexpected_error',
+    });
     await b.aml.handle({}, job());
     b.d.customers.rows.clear();
     const id5 = await queued(b);

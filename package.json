@@ -20,7 +20,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "openapi:export": "ts-node -r tsconfig-paths/register tools/export-openapi.ts",
-    "mock:trackwizz": "ts-node tools/trackwizz-mock/main.ts"
+    "mock:trackwizz": "ts-node src/app/trackwizz-mock.ts",
+    "start:mock": "node dist/app/trackwizz-mock.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

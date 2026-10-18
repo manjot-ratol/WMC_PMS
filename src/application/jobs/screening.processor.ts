@@ -128,8 +128,16 @@ export class ScreeningProcessor extends BaseProcessor<ScreeningJobPayload> {
       if (
         !(err instanceof DependencyUnavailableError) &&
         !(err instanceof PartnerRejectedError)
-      )
+      ) {
+        // Never leave a run RUNNING: a retry would skip it forever. Record, then surface the bug.
+        await this.compliance.updateScreeningRun({
+          ...run,
+          status: 'ERROR',
+          safeErrorCategory: 'unexpected_error',
+          completedAt: now,
+        });
         throw err;
+      }
       const category =
         err instanceof PartnerRejectedError
           ? (err.details as { category?: string } | undefined)?.category ===
