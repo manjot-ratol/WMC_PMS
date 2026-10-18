@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# One image, three entry points: api (default), worker, trackwizz-mock. Migrations run via `prisma migrate deploy`.
+# One image, four entry points: api (default), worker, trackwizz-mock, mfcentral-mock. Migrations run via `prisma migrate deploy`.
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json ./
@@ -22,6 +22,6 @@ COPY test/fixtures/trackwizz ./test/fixtures/trackwizz
 COPY docker/entrypoint.sh ./docker/entrypoint.sh
 RUN chmod +x ./docker/entrypoint.sh
 USER node
-EXPOSE 3000 8099
+EXPOSE 3000 8099 4011
 ENTRYPOINT ["./docker/entrypoint.sh"]
 CMD ["api"]

@@ -1166,3 +1166,89 @@ export class FakeRenderer implements DocumentRendererPort {
     );
   }
 }
+
+/* ---------- Phase 9 fakes ---------- */
+import type {
+  CasRequest,
+  CasRequestResult,
+  MfCentralGatewayPort,
+  ValidateQrRequest,
+} from '../../src/application/ports/mfcentral-gateway.port';
+import type {
+  PortfolioRepositoryPort,
+  PortfolioSnapshot,
+} from '../../src/application/ports/portfolio.repository.port';
+import type { PortfolioImport } from '../../src/domain/portfolio/portfolio-import';
+
+export class FakePortfolio implements PortfolioRepositoryPort {
+  readonly imports = new Map<string, PortfolioImport>();
+  readonly snapshots = new Map<string, PortfolioSnapshot>();
+  createImport(i: PortfolioImport): Promise<void> {
+    this.imports.set(i.id, i);
+    return Promise.resolve();
+  }
+  updateImport(i: PortfolioImport): Promise<void> {
+    this.imports.set(i.id, i);
+    return Promise.resolve();
+  }
+  findImport(id: string): Promise<PortfolioImport | null> {
+    return Promise.resolve(this.imports.get(id) ?? null);
+  }
+  findImportByClientRef(ref: string): Promise<PortfolioImport | null> {
+    return Promise.resolve(
+      [...this.imports.values()].find((i) => i.clientRefNo === ref) ?? null,
+    );
+  }
+  latestImport(applicationId: string): Promise<PortfolioImport | null> {
+    return Promise.resolve(
+      [...this.imports.values()]
+        .filter((i) => i.applicationId === applicationId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ??
+        null,
+    );
+  }
+  createSnapshot(s: PortfolioSnapshot): Promise<boolean> {
+    if ([...this.snapshots.values()].some((x) => x.importId === s.importId))
+      return Promise.resolve(false);
+    this.snapshots.set(s.id, s);
+    return Promise.resolve(true);
+  }
+  latestSnapshot(applicationId: string): Promise<PortfolioSnapshot | null> {
+    return Promise.resolve(
+      [...this.snapshots.values()]
+        .filter((s) => s.applicationId === applicationId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ??
+        null,
+    );
+  }
+}
+export class FakeMfCentral implements MfCentralGatewayPort {
+  readonly requests: CasRequest[] = [];
+  /** Set to make newCasRequest throw (e.g. a PartnerRejectedError). */
+  failWith?: Error;
+  /** Plaintext returned by decrypt for a given cipher; unknown ciphers throw. */
+  readonly plaintexts = new Map<string, string>();
+  newCasRequest(req: CasRequest): Promise<CasRequestResult> {
+    this.requests.push(req);
+    if (this.failWith) return Promise.reject(this.failWith);
+    const reqId = `${4000000000 + this.requests.length}`;
+    return Promise.resolve({
+      reqId,
+      clientRefNo: req.clientRefNo,
+      status: 'Success',
+      raw: {},
+    });
+  }
+  validateQrCode(req: ValidateQrRequest): Promise<CasRequestResult> {
+    return Promise.resolve({ reqId: req.reqId, raw: {} });
+  }
+  buildRedirectUrl(reqId: string, clientRefNo: string): string {
+    return `http://mfc.test/investor?reqId=${reqId}&clientRefNo=${clientRefNo}`;
+  }
+  decrypt(encrypted: string): Promise<string> {
+    const p = this.plaintexts.get(encrypted);
+    return p === undefined
+      ? Promise.reject(new Error('cannot decrypt'))
+      : Promise.resolve(p);
+  }
+}

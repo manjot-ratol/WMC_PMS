@@ -36,6 +36,9 @@ const cfg = (over: Record<string, unknown> = {}) =>
       timeoutMs: 2000,
       cryptoMode: 'remote',
       appUrl: 'https://uatapp.mfcentral.com',
+      redirectUrl: 'http://localhost:3000/v1/integrations/mfcentral/callback',
+      returnUrl: 'http://localhost:5173/onboarding/portfolio-import',
+      importTtlMinutes: 15,
       ...over,
     },
   }) as never;

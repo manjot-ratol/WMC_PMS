@@ -79,6 +79,24 @@ describeWithDb('Phase 9 repositories (docker postgres)', () => {
     };
     await repo.createImport(later);
     expect((await repo.latestImport(app))?.id).toBe(later.id);
+    const minimal: PortfolioImport = {
+      id: `pi_${ns}c`,
+      applicationId: app,
+      provider: 'MFCENTRAL',
+      status: 'SKIPPED',
+      clientRefNo: `pi${ns}c`,
+      expiresAt: now,
+      createdAt: new Date(now.getTime() + 2000),
+      updatedAt: now,
+    };
+    await repo.createImport(minimal);
+    expect(await repo.findImport(minimal.id)).toMatchObject({
+      status: 'SKIPPED',
+      providerRequestId: undefined,
+      authorisationUrl: undefined,
+      failureCategory: undefined,
+      completedAt: undefined,
+    });
   });
 
   it('snapshots: encrypted at rest, insert-if-new per import, latest by application', async () => {

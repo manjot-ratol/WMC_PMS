@@ -18,6 +18,7 @@ import {
   type KycRecord,
 } from '../../domain/kyc/kyc-record';
 import { IPV_RULEBOOK, type IpvRulebook } from '../../domain/ipv/ipv-rulebook';
+import { hasCompleted } from '../../domain/onboarding/application';
 import { BaseProcessor } from '../../infrastructure/queue/base.processor';
 import { QUEUES } from '../../infrastructure/queue/queue.names';
 import { ANALYTICS, type AnalyticsPort } from '../ports/analytics.port';
@@ -201,7 +202,14 @@ export class KycLookupProcessor extends BaseProcessor<KycLookupPayload> {
             updatedAt: now,
           };
       await this.kycRecords.saveWithVersionCheck(updated, record.version, tx);
-      const nextScreen = kycNextScreen(updated);
+      // Screen 06A: a customer still inside the portfolio import keeps that screen; the import step re-reads the
+      // KYC outcome when it completes or is skipped.
+      const inImport =
+        (app.nextScreen === 'PORTFOLIO_IMPORT' ||
+          app.nextScreen === 'ASSETS_DASHBOARD') &&
+        !hasCompleted(app, 'PORTFOLIO_IMPORT') &&
+        updated.route !== 'ASSISTED';
+      const nextScreen = inImport ? app.nextScreen : kycNextScreen(updated);
       const status = updated.route === 'ASSISTED' ? 'ASSISTED' : app.status;
       await this.applications.saveWithVersionCheck(
         { ...app, status, nextScreen, version: app.version + 1 },

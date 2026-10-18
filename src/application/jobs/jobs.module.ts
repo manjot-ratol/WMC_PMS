@@ -18,6 +18,7 @@ import { DocumentProcessor } from './document.processor';
 import { IpvProcessor } from './ipv.processor';
 import { KycLookupProcessor } from './kyc-lookup.processor';
 import { KycStatusPollProcessor, POLL_JOB } from './kyc-status-poll.processor';
+import { PortfolioImportProcessor } from './portfolio-import.processor';
 
 /** Worker-only: queue consumers for Phase 3 and the outbox event routes they consume. */
 @Module({
@@ -38,6 +39,7 @@ import { KycStatusPollProcessor, POLL_JOB } from './kyc-status-poll.processor';
     ActivationProcessor,
     ScreeningProcessor,
     AmlAssessmentProcessor,
+    PortfolioImportProcessor,
   ],
 })
 export class JobsModule implements OnModuleInit {

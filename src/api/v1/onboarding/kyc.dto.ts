@@ -35,7 +35,12 @@ export class IdentityVerificationDto {
 export class IdentityVerificationResponseDto {
   @ApiProperty({ example: 'op_...' }) operation_id!: string;
   @ApiProperty({ example: 'PROCESSING' }) status!: string;
-  @ApiProperty({ example: 'KYC_PROGRESS' }) next_screen!: string;
+  @ApiProperty({
+    example: 'PORTFOLIO_IMPORT',
+    description:
+      'Screen 06A (MF Central portfolio import) comes next; the KRA lookup runs meanwhile',
+  })
+  next_screen!: string;
 }
 
 class KycAddressDto {

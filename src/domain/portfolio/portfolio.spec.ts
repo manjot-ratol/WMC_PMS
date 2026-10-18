@@ -207,6 +207,52 @@ describe('CAS parser', () => {
     ).toThrow('no_holdings_section');
   });
 
+  it('tolerates missing optional fields and rejects non-list holdings sections', () => {
+    const p = parseCasSummary(
+      {
+        data: {
+          folios: [
+            {
+              amc: 'A',
+              folio: '1',
+              schemes: [{ scheme: 'A Liquid', units: 0, marketValue: 0 }],
+            },
+            {
+              folioNo: '2',
+              holdings: [
+                { name: 'Unknown Thing', units: '1,0', currentValue: 'abc' },
+              ],
+            },
+            { amc: 'C', schemes: 'not-a-list' },
+            'junk',
+          ],
+        },
+      },
+      { pan: 'ABJPX1234J', asOf: now },
+    );
+    expect(p.holdings).toEqual([
+      expect.objectContaining({
+        amc: 'A',
+        schemeName: 'A Liquid',
+        units: 0,
+        nav: 0,
+        marketValueInr: 0,
+        assetClass: 'DEBT',
+      }),
+    ]);
+    expect(p.investor).toEqual({ name: undefined, panMasked: 'AB••••••4J' });
+    expect(p.totals.folioCount).toBe(1);
+    expect(p.byAssetClass).toEqual([
+      { assetClass: 'DEBT', marketValueInr: 0, weightPct: 0 },
+    ]);
+    expect(() =>
+      parseCasSummary({ folios: 'nope' }, { pan: 'ABJPX1234J', asOf: now }),
+    ).toThrow('no_holdings_section');
+    expect(() =>
+      parseCasSummary({ data: 'nope' }, { pan: 'ABJPX1234J', asOf: now }),
+    ).toThrow('no_holdings_section');
+  });
+
   it('classifies schemes and masks folios', () => {
     expect(classifyScheme('ELSS Tax Saver')).toBe('EQUITY');
     expect(classifyScheme('Overnight Fund')).toBe('DEBT');

@@ -31,4 +31,6 @@ export const ID_PREFIX = {
   taskResponse: 'tr',
   complianceCase: 'case',
   reviewDecision: 'rd',
+  portfolioImport: 'pi',
+  portfolioSnapshot: 'ps',
 } as const;

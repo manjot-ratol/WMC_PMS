@@ -116,7 +116,7 @@ describe('SIT: journey screens 06-11', () => {
     );
     expect(res).toMatchObject({
       status: 'PROCESSING',
-      next_screen: 'KYC_PROGRESS',
+      next_screen: 'PORTFOLIO_IMPORT',
     });
     const kyc = await eventually(async () => {
       const r = json(
@@ -152,6 +152,95 @@ describe('SIT: journey screens 06-11', () => {
     expect(
       await wiremock.requestsTo('/digio/v3/client/kyc/kra/v2/get_pan_status'),
     ).toHaveLength(1);
+  });
+
+  it('06A: MF Central import through the mock (consent → callback → worker), 06B: masked dashboard, then CONFIRM_KYC', async () => {
+    const base = `/v1/onboarding/applications/${applicationId}`;
+    const started = json(
+      await sit
+        .http()
+        .post(`${base}/portfolio-imports`)
+        .set(auth())
+        .set('Idempotency-Key', idem())
+        .send({ consent: true })
+        .expect(201),
+    );
+    expect(started).toMatchObject({
+      status: 'AWAITING_AUTHORISATION',
+      next_screen: 'PORTFOLIO_IMPORT',
+    });
+    const importId = started.import_id as string;
+    expect(started.authorisation_url).toContain(`/investor?reqId=`);
+    // the KRA lookup already finished, but the customer is still inside the import: resume stays on 06A
+    expect(
+      json(await sit.http().get(base).set(auth()).expect(200)).next_screen,
+    ).toBe('PORTFOLIO_IMPORT');
+    // a second consent while the first request is open reuses it (one vendor call)
+    expect(
+      json(
+        await sit
+          .http()
+          .post(`${base}/portfolio-imports`)
+          .set(auth())
+          .set('Idempotency-Key', idem())
+          .send({ consent: true })
+          .expect(201),
+      ).import_id,
+    ).toBe(importId);
+    expect(
+      worker.mfcentral.calls.filter(
+        (c) => c.path === '/api/client/V1/newCasRequest',
+      ),
+    ).toHaveLength(1);
+
+    // what the mock's consent page posts to our callback when the investor approves
+    const authorised = worker.mfcentral.authorise(importId, 'APPROVE');
+    const cb = await sit
+      .http()
+      .post('/v1/integrations/mfcentral/callback')
+      .type('form')
+      .send(authorised.fields)
+      .expect(302);
+    expect(cb.headers.location).toBe(
+      `http://localhost:5173/onboarding/portfolio-import?import_id=${importId}&status=received`,
+    );
+    const done = await eventually(async () => {
+      const r = json(
+        await sit
+          .http()
+          .get(`${base}/portfolio-imports/${importId}`)
+          .set(auth())
+          .expect(200),
+      );
+      return r.status === 'IMPORTED' ? r : null;
+    });
+    expect(done).toMatchObject({ next_screen: 'ASSETS_DASHBOARD' });
+    const dash = json(
+      await sit.http().get(`${base}/portfolio`).set(auth()).expect(200),
+    );
+    expect(dash).toMatchObject({
+      status: 'AVAILABLE',
+      import_id: importId,
+      source: 'MFCENTRAL',
+      investor: { pan_masked: `${pan.slice(0, 2)}••••••${pan.slice(-2)}` },
+      next_screen: 'CONFIRM_KYC',
+    });
+    expect(dash.holdings).toHaveLength(4);
+    expect((dash.totals as Json).market_value_inr).toBeGreaterThan(0);
+    expect(JSON.stringify(dash)).not.toContain(pan);
+    // a replayed callback is acknowledged and changes nothing
+    await sit
+      .http()
+      .post('/v1/integrations/mfcentral/callback')
+      .type('form')
+      .send(authorised.fields)
+      .expect(302);
+    expect(
+      json(await sit.http().get(base).set(auth()).expect(200)).next_screen,
+    ).toBe('CONFIRM_KYC');
+    expect(
+      await prisma.portfolioSnapshot.count({ where: { applicationId } }),
+    ).toBe(1);
   });
 
   it('08: stale version is 409; confirmation completes KYC and, with the KRA IPV flag, skips IPV to PROFILE', async () => {
@@ -460,6 +549,18 @@ describe('SIT: journey screens 06-11', () => {
       return r.status === 'NO_RECORD' ? r : null;
     });
     expect(kyc).toMatchObject({ route: 'FRESH', next_screen: 'FRESH_KYC' });
+    // the import is optional: skipping completes the step and follows the KYC outcome
+    expect(
+      json(
+        await sit
+          .http()
+          .post(`/v1/onboarding/applications/${app2}/portfolio-imports/skip`)
+          .set(s2)
+          .set('Idempotency-Key', idem())
+          .send({})
+          .expect(200),
+      ),
+    ).toEqual({ status: 'SKIPPED', next_screen: 'FRESH_KYC' });
     const created = json(
       await sit
         .http()

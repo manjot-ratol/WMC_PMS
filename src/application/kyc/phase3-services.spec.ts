@@ -163,13 +163,13 @@ const submit = {
 };
 
 describe('IdentityService', () => {
-  it('records the identity version, a PROCESSING kyc record, advances to KYC_PROGRESS and enqueues the lookup', async () => {
+  it('records the identity version, a PROCESSING kyc record, advances to PORTFOLIO_IMPORT (screen 06A) and enqueues the lookup', async () => {
     const { d, identity } = build();
     const r = await identity.submit(submit);
     expect(r).toEqual({
       operationId: expect.stringMatching(/^op_/) as string,
       status: 'PROCESSING',
-      nextScreen: 'KYC_PROGRESS',
+      nextScreen: 'PORTFOLIO_IMPORT',
     });
     expect(d.identities.rows[0]).toMatchObject({
       applicationId: 'app_1',
@@ -183,7 +183,7 @@ describe('IdentityService', () => {
       identityVersion: 1,
     });
     expect(d.applications.rows.get('app_1')).toMatchObject({
-      nextScreen: 'KYC_PROGRESS',
+      nextScreen: 'PORTFOLIO_IMPORT',
     });
     expect(d.outbox.events.map((e) => e.eventType)).toEqual([
       'IdentityVerificationRequested',
@@ -207,7 +207,7 @@ describe('IdentityService', () => {
     const r = await identity.submit(submit);
     expect(r).toMatchObject({
       status: 'PROCESSING',
-      nextScreen: 'KYC_PROGRESS',
+      nextScreen: 'PORTFOLIO_IMPORT',
     });
     expect([...d.kyc.rows.values()][0]).toMatchObject({
       status: 'REVIEW_REQUIRED',

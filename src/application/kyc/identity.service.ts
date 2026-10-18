@@ -50,7 +50,8 @@ export interface SubmitIdentityCommand {
 export interface IdentitySubmitted {
   operationId: string;
   status: 'PROCESSING';
-  nextScreen: 'KYC_PROGRESS';
+  /** Screen 06A: the MF Central portfolio import runs while the KRA lookup completes in the worker. */
+  nextScreen: 'PORTFOLIO_IMPORT';
 }
 
 export const SCREEN_IDENTITY = '06';
@@ -144,7 +145,7 @@ export class IdentityService {
           : { status: 'PROCESSING' as const }),
       };
       await this.kycRecords.create(record, tx);
-      const advanced = completeStep(app, 'IDENTITY', 'KYC_PROGRESS', now);
+      const advanced = completeStep(app, 'IDENTITY', 'PORTFOLIO_IMPORT', now);
       await this.applications.saveWithVersionCheck(advanced, app.version, tx);
       await this.audit.append(
         {
@@ -203,7 +204,11 @@ export class IdentityService {
           tx,
         );
       }
-      return { operationId, status: 'PROCESSING', nextScreen: 'KYC_PROGRESS' };
+      return {
+        operationId,
+        status: 'PROCESSING',
+        nextScreen: 'PORTFOLIO_IMPORT',
+      };
     });
   }
 

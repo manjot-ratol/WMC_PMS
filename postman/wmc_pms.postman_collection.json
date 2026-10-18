@@ -1,12 +1,12 @@
 {
  "info": {
-  "name": "WMC PMS Onboarding \u2014 screens 01-25",
+  "name": "WMC PMS Onboarding — screens 01-25",
   "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
   "description": "Run top to bottom. OTPs: phone OTP from the API log (sms.sent), email OTP from Mailpit http://localhost:8025. Partners are mocked: Digio via WireMock (8080), TrackWizz via the local mock (8099)."
  },
  "item": [
   {
-   "name": "00 \u00b7 Health",
+   "name": "00 · Health",
    "description": "Infra: postgres 5432, redis 6380, minio 9000 (console 9001), wiremock 8080, mailpit 8025, trackwizz mock 8099.",
    "item": [
     {
@@ -61,7 +61,7 @@
    ]
   },
   {
-   "name": "01-02 \u00b7 Phone OTP",
+   "name": "01-02 · Phone OTP",
    "description": "",
    "item": [
     {
@@ -104,7 +104,7 @@
      ]
     },
     {
-     "name": "Dev: read last phone OTP \u2192 sets {{otp}}",
+     "name": "Dev: read last phone OTP → sets {{otp}}",
      "request": {
       "method": "GET",
       "header": [
@@ -179,7 +179,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/verify",
-      "description": "Creates the application and the session. Wrong OTP \u2192 422 OTP_INVALID_OR_EXPIRED.",
+      "description": "Creates the application and the session. Wrong OTP → 422 OTP_INVALID_OR_EXPIRED.",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"otp\": \"{{otp}}\"\n}",
@@ -231,7 +231,7 @@
    ]
   },
   {
-   "name": "03-04 \u00b7 Email OTP",
+   "name": "03-04 · Email OTP",
    "description": "",
    "item": [
     {
@@ -278,7 +278,7 @@
      ]
     },
     {
-     "name": "Dev: read last email OTP \u2192 sets {{email_otp}}",
+     "name": "Dev: read last email OTP → sets {{email_otp}}",
      "request": {
       "method": "GET",
       "header": [
@@ -379,7 +379,7 @@
    ]
   },
   {
-   "name": "05 \u00b7 Eligibility",
+   "name": "05 · Eligibility",
    "description": "",
    "item": [
     {
@@ -401,7 +401,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/eligibility",
-      "description": "Min investment 25,00,000 (eligibility.v1.json). NRI / joint / non-individual / DISTRIBUTOR \u2192 ASSISTED_REQUIRED.",
+      "description": "Min investment 25,00,000 (eligibility.v1.json). NRI / joint / non-individual / DISTRIBUTOR → ASSISTED_REQUIRED.",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"customer_type\": \"INDIVIDUAL\",\n  \"residential_status\": \"RESIDENT\",\n  \"intended_investment_inr\": 5000000,\n  \"distribution_route\": \"DIRECT\"\n}",
@@ -427,7 +427,7 @@
    ]
   },
   {
-   "name": "06-08 \u00b7 PAN identity + KYC (KRA via WireMock)",
+   "name": "06-08 · PAN identity + KYC (KRA via WireMock)",
    "description": "",
    "item": [
     {
@@ -449,7 +449,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/identity-verifications",
-      "description": "WireMock KRA: PAN matching ABJP?####J \u2192 existing KRA record (route REUSE); NORP?####X \u2192 no record (route FRESH). Use a NEW PAN per application (duplicate PAN goes to assisted review).",
+      "description": "WireMock KRA: PAN matching ABJP?####J → existing KRA record (route REUSE); NORP?####X → no record (route FRESH). Use a NEW PAN per application (duplicate PAN goes to assisted review). Answers next_screen PORTFOLIO_IMPORT (screen 06A, MF Central import) while the KRA lookup runs in the worker.",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"pan\": \"{{pan}}\",\n  \"legal_name\": \"Vinod Kumar Singh\",\n  \"date_of_birth\": \"1955-08-16\",\n  \"permission_version\": \"kyc_fetch_v1\"\n}",
@@ -517,7 +517,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/confirmation",
-      "description": "Only when 07 returned EXISTING_RECORD_AVAILABLE. Stale version \u2192 409.",
+      "description": "Only when 07 returned EXISTING_RECORD_AVAILABLE. Stale version → 409.",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"kyc_record_version\": {{kyc_record_version}},\n  \"details_confirmed\": true,\n  \"changes\": {}\n}",
@@ -543,7 +543,262 @@
    ]
   },
   {
-   "name": "09-11 \u00b7 Fresh KYC, documents, IPV (only for route FRESH)",
+   "name": "06A-06B · Portfolio import (MF Central mock)",
+   "description": "After screen 06 the customer is sent into the MF Central CAS consent flow (next_screen PORTFOLIO_IMPORT). Browser path: open the authorisation_url, press Approve on the mock's consent page, the browser POSTs to the backend callback and lands on MFCENTRAL_RETURN_URL?import_id=…&status=received; then poll the import status and load the dashboard. Script path (no browser): 'Mock: authorise' + 'Simulate return'.",
+   "item": [
+    {
+     "name": "06A Start portfolio import",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio-imports",
+      "description": "201 with authorisation_url (the mock's consent page). Calling again while AWAITING_AUTHORISATION returns the same import. PAN digits 9999 → FAILED provider_rejected (unwhitelisted on UAT); digits 0000 → empty statement.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"consent\": true\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('201', () => pm.response.to.have.status(201));",
+         "const b = pm.response.json(); pm.collectionVariables.set('import_id', b.import_id); if (b.authorisation_url) pm.collectionVariables.set('authorisation_url', b.authorisation_url);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "06A Consent page (open in browser)",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{authorisation_url}}",
+      "description": "Open this URL in a browser (the mock's investor consent page). Approve → the browser POSTs reqId/clientRefNo/status/response to {{baseUrl}}/v1/integrations/mfcentral/callback and is redirected to the FE return URL. Skip this request and use the two below for a scripted run."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "06A Mock: authorise (script alternative to the browser)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": "{{mfcentral_mock_url}}/mock/requests/{{import_id}}/authorise",
+      "description": "Returns exactly what the consent page would post to our callback. outcome: APPROVE | DECLINE.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"outcome\": \"APPROVE\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); pm.collectionVariables.set('mfc_req_id', b.fields.reqId); pm.collectionVariables.set('mfc_client_ref', b.fields.clientRefNo); pm.collectionVariables.set('mfc_status', b.fields.status); pm.collectionVariables.set('mfc_response', b.fields.response || '');"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "06A Simulate return to the callback",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/x-www-form-urlencoded"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/integrations/mfcentral/callback",
+      "description": "No session: this is what MF Central's redirect does from the investor's browser. 302 to MFCENTRAL_RETURN_URL?import_id=…&status=received (unknown clientRefNo → status=unknown). The worker then decrypts and parses the statement.",
+      "body": {
+       "mode": "urlencoded",
+       "urlencoded": [
+        {
+         "key": "reqId",
+         "value": "{{mfc_req_id}}"
+        },
+        {
+         "key": "clientRefNo",
+         "value": "{{mfc_client_ref}}"
+        },
+        {
+         "key": "status",
+         "value": "{{mfc_status}}"
+        },
+        {
+         "key": "response",
+         "value": "{{mfc_response}}"
+        }
+       ]
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('302 to the FE', () => { pm.response.to.have.status(302); pm.expect(pm.response.headers.get('Location')).to.include('import_id=' + pm.collectionVariables.get('import_id')); });"
+        ]
+       }
+      }
+     ],
+     "protocolProfileBehavior": {
+      "followRedirects": false
+     }
+    },
+    {
+     "name": "06A Import status (poll until IMPORTED)",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio-imports/{{import_id}}",
+      "description": "AWAITING_AUTHORISATION → IMPORTED (next_screen ASSETS_DASHBOARD) | DECLINED | FAILED (failure_category) | EXPIRED (after PORTFOLIO_IMPORT_TTL_MINUTES)."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); console.log('import', b.status, b.next_screen);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "06B Assets dashboard",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio",
+      "description": "Masked holdings (PAN, folios), totals, split by asset class. next_screen is where Continue goes (the KYC outcome, e.g. CONFIRM_KYC)."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.test('available', () => pm.expect(pm.response.json().status).to.eql('AVAILABLE'));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "06A Skip import (alternative)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio-imports/skip",
+      "description": "Completes the optional step without importing; next_screen follows the KYC lookup (KYC_PROGRESS until it finishes).",
+      "body": {
+       "mode": "raw",
+       "raw": "{}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "09-11 · Fresh KYC, documents, IPV (only for route FRESH)",
    "description": "",
    "item": [
     {
@@ -709,7 +964,7 @@
    ]
   },
   {
-   "name": "12-13 \u00b7 Profile and declarations",
+   "name": "12-13 · Profile and declarations",
    "description": "",
    "item": [
     {
@@ -731,7 +986,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/profile",
-      "description": "Start with profile_version 0. Re-saving with the old version \u2192 409.",
+      "description": "Start with profile_version 0. Re-saving with the old version → 409.",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"occupation\": \"PRIVATE_SECTOR\",\n  \"annual_income_band\": \"INR_10L_25L\",\n  \"source_of_funds\": [\n    \"SALARY\"\n  ],\n  \"profile_version\": {{profile_version}}\n}",
@@ -800,7 +1055,7 @@
    ]
   },
   {
-   "name": "14-16 \u00b7 Bank and nomination",
+   "name": "14-16 · Bank and nomination",
    "description": "",
    "item": [
     {
@@ -822,7 +1077,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/bank-verifications",
-      "description": "WireMock bank stub by account prefix: 9999\u2026 \u2192 VERIFIED (score 92); 5555\u2026 \u2192 REVIEW_REQUIRED (score 55); 1111\u2026 \u2192 ACTION_REQUIRED (invalid account).",
+      "description": "WireMock bank stub by account prefix: 9999… → VERIFIED (score 92); 5555… → REVIEW_REQUIRED (score 55); 1111… → ACTION_REQUIRED (invalid account).",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"account_number\": \"999912345678\",\n  \"account_number_confirmation\": \"999912345678\",\n  \"ifsc\": \"HDFC0001234\",\n  \"holder_name\": \"Vinod Kumar Singh\"\n}",
@@ -916,7 +1171,7 @@
    ]
   },
   {
-   "name": "17-20 \u00b7 Suitability, approach, fees, review",
+   "name": "17-20 · Suitability, approach, fees, review",
    "description": "",
    "item": [
     {
@@ -938,7 +1193,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/suitability-assessments",
-      "description": "Partial answers \u2192 INCOMPLETE with missing_question_ids. LONG_TERM_GROWTH + UNDER_1_YEAR \u2192 422 contradictory.",
+      "description": "Partial answers → INCOMPLETE with missing_question_ids. LONG_TERM_GROWTH + UNDER_1_YEAR → 422 contradictory.",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"questionnaire_version\": \"suitability_v1\",\n  \"answers\": [\n    {\n      \"question_id\": \"OBJECTIVE\",\n      \"answer_id\": \"LONG_TERM_GROWTH\"\n    },\n    {\n      \"question_id\": \"HORIZON\",\n      \"answer_id\": \"FIVE_YEARS_PLUS\"\n    },\n    {\n      \"question_id\": \"LIQUIDITY\",\n      \"answer_id\": \"NONE_EXPECTED\"\n    },\n    {\n      \"question_id\": \"EXPERIENCE\",\n      \"answer_id\": \"DIRECT_EQUITY\"\n    },\n    {\n      \"question_id\": \"RISK_CAPACITY\",\n      \"answer_id\": \"LOSS_UP_TO_25\"\n    }\n  ]\n}",
@@ -981,7 +1236,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/investment-approach",
-      "description": "Only approaches permitted by the assessed band (suitability.v1.json). CONSERVATIVE_INCOME on an AGGRESSIVE profile \u2192 422.",
+      "description": "Only approaches permitted by the assessed band (suitability.v1.json). CONSERVATIVE_INCOME on an AGGRESSIVE profile → 422.",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"assessment_id\": \"{{assessment_id}}\",\n  \"assessment_version\": 1,\n  \"approach_code\": \"EQUITY_GROWTH\",\n  \"confirmed\": true\n}",
@@ -1160,7 +1415,7 @@
    ]
   },
   {
-   "name": "21-22 \u00b7 Signing and processing",
+   "name": "21-22 · Signing and processing",
    "description": "",
    "item": [
     {
@@ -1275,7 +1530,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/tasks/{{task_id}}/responses",
-      "description": "Only for customer-action tasks (CLARIFICATION, BANK_PROOF, \u2026).",
+      "description": "Only for customer-action tasks (CLARIFICATION, BANK_PROOF, …).",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"response_type\": \"TEXT\",\n  \"text\": \"Clarification provided.\"\n}",
@@ -1290,7 +1545,7 @@
    ]
   },
   {
-   "name": "23-25 \u00b7 Funding and activation",
+   "name": "23-25 · Funding and activation",
    "description": "",
    "item": [
     {
@@ -1470,7 +1725,7 @@
        }
       ],
       "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/underlying-accounts",
-      "description": "Both required types READY \u2192 step ACCOUNT_OPENING completes, funding instructions unlock.",
+      "description": "Both required types READY → step ACCOUNT_OPENING completes, funding instructions unlock.",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"DP\",\n  \"account_type\": \"DEMAT\",\n  \"account_reference\": \"IN000123\",\n  \"status\": \"READY\"\n}",
@@ -1508,7 +1763,7 @@
        }
       ],
       "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/funding-receipts",
-      "description": "Matches only from the verified account, in INR, to the payment_reference from screen 23. Same provider_receipt_key twice \u2192 DUPLICATE.",
+      "description": "Matches only from the verified account, in INR, to the payment_reference from screen 23. Same provider_receipt_key twice → DUPLICATE.",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"BANK\",\n  \"amount_inr\": 5000000,\n  \"currency\": \"INR\",\n  \"source_account_number\": \"999912345678\",\n  \"destination_reference\": \"{{payment_reference}}\",\n  \"value_date\": \"2026-10-18\"\n}",
@@ -1784,7 +2039,7 @@
        }
       ],
       "url": "{{baseUrl}}/internal/v1/review/applications/{{application_id}}/bank-evidence",
-      "description": "For a 5555\u2026/1111\u2026 account (REVIEW_REQUIRED / ACTION_REQUIRED).",
+      "description": "For a 5555…/1111… account (REVIEW_REQUIRED / ACTION_REQUIRED).",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"verification_id\": \"{{bank_verification_id}}\",\n  \"reason\": \"Cancelled cheque verified by reviewer.\"\n}",
@@ -2068,6 +2323,34 @@
   {
    "key": "digio_webhook_secret",
    "value": "local-webhook-secret"
+  },
+  {
+   "key": "mfcentral_mock_url",
+   "value": "http://localhost:4011"
+  },
+  {
+   "key": "import_id",
+   "value": ""
+  },
+  {
+   "key": "authorisation_url",
+   "value": ""
+  },
+  {
+   "key": "mfc_req_id",
+   "value": ""
+  },
+  {
+   "key": "mfc_client_ref",
+   "value": ""
+  },
+  {
+   "key": "mfc_status",
+   "value": ""
+  },
+  {
+   "key": "mfc_response",
+   "value": ""
   }
  ]
 }

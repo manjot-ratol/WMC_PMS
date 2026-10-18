@@ -77,6 +77,9 @@ export class MfCentralGateway implements MfCentralGatewayPort {
       qrCode: req.qrCode,
     });
   }
+  decrypt(encrypted: string): Promise<string> {
+    return this.crypto.decrypt(encrypted);
+  }
   buildRedirectUrl(reqId: string, clientRefNo: string): string {
     const u = new URL(this.cfg.appUrl);
     u.searchParams.set('reqId', reqId);

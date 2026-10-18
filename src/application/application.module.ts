@@ -10,6 +10,8 @@ import { ProcessingService } from './processing/processing.service';
 import { SigningService } from './signing/signing.service';
 import { ComplianceService } from './compliance/compliance.service';
 import { BackOfficeReviewService } from './back-office/back-office-review.service';
+import { MfCentralCallbackService } from './portfolio/mfcentral-callback.service';
+import { PortfolioImportService } from './portfolio/portfolio-import.service';
 import { FeesService } from './fees/fees.service';
 import { ReviewService } from './review/review.service';
 import { SuitabilityService } from './suitability/suitability.service';
@@ -57,6 +59,8 @@ import { EmailVerificationService } from './onboarding/email-verification.servic
     FundingService,
     ComplianceService,
     BackOfficeReviewService,
+    PortfolioImportService,
+    MfCentralCallbackService,
   ],
   exports: [
     PhoneChallengeService,
@@ -82,6 +86,8 @@ import { EmailVerificationService } from './onboarding/email-verification.servic
     FundingService,
     ComplianceService,
     BackOfficeReviewService,
+    PortfolioImportService,
+    MfCentralCallbackService,
   ],
 })
 export class ApplicationServicesModule {}

@@ -81,19 +81,35 @@ Central UAT credentials are supplied by those vendors. Put them in `.env`.
 ## Analytics and other connectors
 
 - Backend analytics events are written to `analytics_outbox` with allowlisted properties only and shipped by the worker's `analytics-dispatch` tick to CleverTap (`POST /1/upload`) when `CLEVERTAP_ENABLED=true`; otherwise a log sink records names and counts. The dispatcher re-applies the allowlist and logs a privacy incident for anything else.
-- MF Central CAS (`MfCentralGateway`): token → encrypt → sign → `newCasRequest` / `validateQRCode` → decrypt, exactly as the UAT collection. `MFCENTRAL_CRYPTO_MODE=remote` uses MF Central's `/api/test/*` helpers; `local` signs with the private JWK (detached RS256, `b64:false`) and uses an AES placeholder marked unverified. Connector only, no business wiring (owner decision).
+- MF Central CAS (`MfCentralGateway`): token → encrypt → sign → `newCasRequest` / `validateQRCode` → decrypt, exactly as the UAT collection. `MFCENTRAL_CRYPTO_MODE=remote` uses MF Central's `/api/test/*` helpers; `local` signs with the private JWK (detached RS256, `b64:false`) and uses an AES placeholder marked unverified. Wired into screens 06A–06B (below).
 - Ignosis bank analytics: `parseIgnosisAnalytics` types the documented JSON tags (overall, account-wise, salary/EMI, loans, ABB, score, MF/equity/FD summaries, nudges). No API contract was supplied, so there is no gateway.
+
+## MF Central portfolio import (screens 06A–06B)
+
+After screen 06 (`POST …/identity-verifications` now answers `next_screen: PORTFOLIO_IMPORT`) the customer is offered a consent-driven pull of their mutual-fund holdings from MF Central while the KRA lookup runs in the worker. The step is optional: skipping completes it and the journey follows the KYC outcome (`KYC_PROGRESS` / `CONFIRM_KYC` / `FRESH_KYC`).
+
+Front-end sequence (all under `/v1/onboarding/applications/{id}`, session token):
+
+1. `POST portfolio-imports {consent: true}` → 201 `{import_id, status: AWAITING_AUTHORISATION, authorisation_url, expires_at, next_screen}`. Send the browser to `authorisation_url` (MF Central's consent page; locally the mock's page with Approve/Decline).
+2. MF Central returns the browser to the backend callback `POST|GET /v1/integrations/mfcentral/callback` (`MFCENTRAL_REDIRECT_URL`, no session), which stores the payload and redirects (302) to `MFCENTRAL_RETURN_URL?import_id=…&status=received` — point that variable at the FE route for this screen.
+3. Poll `GET portfolio-imports/{import_id}` until `status` is `IMPORTED` (`next_screen: ASSETS_DASHBOARD`), `DECLINED`, `FAILED` (`failure_category`) or `EXPIRED`.
+4. `GET portfolio` → masked holdings (`pan_masked`, `folio_masked`), totals, split by asset class and the `next_screen` for the Continue button. `status` is `AVAILABLE | NOT_AVAILABLE | SKIPPED`.
+5. `POST portfolio-imports/skip` → `{status: SKIPPED, next_screen}` at any point before an import succeeds.
+
+The worker (`portfolio-import` queue) decrypts the returned statement with the same crypto helpers, parses it (`domain/portfolio/cas-parser.ts`; MF Central's collection carries no sample statement, so the shape is the mock's plus common aliases, flagged `PLACEHOLDER_PENDING_MFCENTRAL_CONFIRMATION`), keeps the decrypted statement as restricted evidence under `portfolio/{applicationId}/{importId}/cas.json`, stores the dashboard model encrypted in `onboarding.portfolio_snapshots` and completes step `PORTFOLIO_IMPORT`. Analytics carry outcomes only (`Portfolio Import Started|Completed|Skipped`).
+
+Mock (`npm run mock:mfcentral`, port 4011; compose service `mfcentral-mock`): implements the token, helper and CAS endpoints with reversible "encryption", a consent page at `/investor?reqId=…` and `POST /mock/requests/{reqId or clientRefNo}/authorise {outcome: APPROVE|DECLINE}` for scripted runs (returns the exact form fields the consent page posts to the callback). PAN digits `9999` are rejected like an unwhitelisted PAN on UAT (`FAILED / provider_rejected`), `0000` gives an empty statement, anything else four holdings across two AMCs. Against real UAT the `redirectUrl` must be whitelisted by MF Central and a tenant test PAN is required (both still pending from the vendor).
 
 ## Local manual testing (Postman)
 
 1. Infra: `docker compose up -d` (postgres 5432, redis 6380, minio 9000/9001, wiremock 8080, mailpit 8025).
-2. Processes: `npm run build`, then `npm run start:api`, `npm run start:worker` and `npm run mock:trackwizz` (TrackWizz stand-in on 8099). `.env` points Digio at WireMock (`http://localhost:8080/digio`) and TrackWizz at the mock; switch the `DIGIO_*` / `TRACKWIZZ_*` values back to the sandbox once real credentials arrive.
-3. Import `postman/wmc_pms.postman_collection.json`. `internal_token` defaults to `dev-internal-token`, the value in `.env.docker` used by the compose stack; when running the API from source with `npm run start:api`, set it to `INTERNAL_SERVICE_TOKEN` from `.env` instead. Folders follow the screens (01–25), then internal feeds, reviewer and simulated webhooks; test scripts capture ids and tokens into collection variables as you go.
+2. Processes: `npm run build`, then `npm run start:api`, `npm run start:worker`, `npm run mock:trackwizz` (TrackWizz stand-in on 8099) and `npm run mock:mfcentral` (MF Central stand-in on 4011; set `MFCENTRAL_BASE_URL=http://localhost:4011` and `MFCENTRAL_APP_URL=http://localhost:4011/investor` in `.env`). `.env` points Digio at WireMock (`http://localhost:8080/digio`) and TrackWizz at the mock; switch the `DIGIO_*` / `TRACKWIZZ_*` values back to the sandbox once real credentials arrive.
+3. Import `postman/wmc_pms.postman_collection.json`. `internal_token` defaults to `dev-internal-token`, the value in `.env.docker` used by the compose stack; when running the API from source with `npm run start:api`, set it to `INTERNAL_SERVICE_TOKEN` from `.env` instead. Folders follow the screens (01–25, with 06A–06B for the MF Central import), then internal feeds, reviewer and simulated webhooks; test scripts capture ids and tokens into collection variables as you go.
 4. OTPs are never logged. Use `GET /internal/v1/dev/otps?to=<phone or email>` (service token, non-production only; wired in the collection as "Dev: read last … OTP"), or Mailpit for email.
 5. Mock data: PAN `ABJP?####J` → existing KRA record (REUSE route), `NORP?####X` → no record (FRESH route), use a fresh PAN per application; bank account `9999…` → VERIFIED, `5555…` → REVIEW_REQUIRED, `1111…` → ACTION_REQUIRED; the eSign stub reports completion on the first poll, so signing executes within ~30 s; accounts and receipts come from the internal feeds folder.
 
 ## Docker (everything in containers)
 
-`docker compose up -d` builds the image and starts the whole stack on mocked partners: postgres, redis, minio, wiremock, mailpit, a one-shot `migrate` job (`prisma migrate deploy`), `api` (3000), `worker` and `trackwizz-mock` (8099). Configuration comes from `.env.docker` (no real credentials). One image, four entry points via `docker/entrypoint.sh`: `api`, `worker`, `mock`, `migrate`.
+`docker compose up -d` builds the image and starts the whole stack on mocked partners: postgres, redis, minio, wiremock, mailpit, a one-shot `migrate` job (`prisma migrate deploy`), `api` (3000), `worker`, `trackwizz-mock` (8099) and `mfcentral-mock` (4011, consent page reachable from the browser). Configuration comes from `.env.docker` (no real credentials). One image, five entry points via `docker/entrypoint.sh`: `api`, `worker`, `mock`, `mock-mfcentral`, `migrate`.
 
 To hand the stack to someone without the repo: `docker build -t wmc-pms:0.1.0 . && docker save wmc-pms:0.1.0 | gzip > wmc-pms-0.1.0.tar.gz`, and ship it with `docker-compose.yml` (build lines removed), `.env.docker`, `tools/wiremock/mappings`, `tools/postgres/init` and the Postman collection. They run `docker load -i wmc-pms-0.1.0.tar.gz && docker compose up -d`.

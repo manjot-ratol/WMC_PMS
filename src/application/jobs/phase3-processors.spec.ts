@@ -261,6 +261,51 @@ describe('KycLookupProcessor', () => {
       nextScreen: 'ASSISTED_ONBOARDING',
     });
   });
+  it('keeps a customer who is inside the portfolio import (screen 06A) on that screen; an assisted route still leaves', async () => {
+    const b = build();
+    const app = b.d.applications.rows.get('app_1')!;
+    b.d.applications.rows.set('app_1', {
+      ...app,
+      nextScreen: 'PORTFOLIO_IMPORT',
+    });
+    b.d.kra.checkPanStatus.mockResolvedValue({
+      statusCode: '007',
+      status: 'Validated',
+      raw: {},
+    });
+    b.d.kra.fetchDetails.mockResolvedValue({
+      name: 'VINOD',
+      kyc: {
+        statusCode: '007',
+        status: 'Validated',
+        statusDate: toIsoDate('2023-06-02'),
+        ipvFlag: 'Y',
+      },
+      raw: {},
+    });
+    await b.lookup.handle(lookupData, lookupJob());
+    expect(b.d.kyc.rows.get('kyc_1')?.route).toBe('REUSE');
+    expect(b.d.applications.rows.get('app_1')?.nextScreen).toBe(
+      'PORTFOLIO_IMPORT',
+    );
+
+    const c = build();
+    const app2 = c.d.applications.rows.get('app_1')!;
+    c.d.applications.rows.set('app_1', {
+      ...app2,
+      nextScreen: 'ASSETS_DASHBOARD',
+    });
+    c.d.kra.checkPanStatus.mockResolvedValue({ statusCode: '099', raw: {} });
+    c.d.kra.fetchDetails.mockResolvedValue({
+      kyc: { statusCode: '099' },
+      raw: {},
+    });
+    await c.lookup.handle(lookupData, lookupJob());
+    expect(c.d.applications.rows.get('app_1')).toMatchObject({
+      status: 'ASSISTED',
+      nextScreen: 'ASSISTED_ONBOARDING',
+    });
+  });
   it('provider outage rethrows while retries remain, then records TECHNICAL_ERROR; rejections are technical errors immediately', async () => {
     const { d, lookup } = build();
     d.kra.checkPanStatus.mockRejectedValue(new DependencyUnavailableError());
