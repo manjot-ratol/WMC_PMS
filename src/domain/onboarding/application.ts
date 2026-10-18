@@ -9,7 +9,8 @@ export type ApplicationStatus =
   | 'NOT_ELIGIBLE'
   | 'WITHDRAWN'
   | 'SUBMITTED'
-  | 'ACTIVE';
+  | 'ACTIVE'
+  | 'REJECTED';
 
 export interface OnboardingApplication {
   readonly id: string;

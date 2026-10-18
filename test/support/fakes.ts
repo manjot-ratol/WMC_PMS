@@ -538,6 +538,14 @@ export class FakeTasks implements TaskRepositoryPort {
     this.responses.push(r);
     return Promise.resolve();
   }
+  listByStatus(
+    statuses: TaskRecord['status'][],
+    limit: number,
+  ): Promise<TaskRecord[]> {
+    return Promise.resolve(
+      this.rows.filter((t) => statuses.includes(t.status)).slice(0, limit),
+    );
+  }
   listOpen(applicationId: string): Promise<TaskRecord[]> {
     return Promise.resolve(
       this.rows.filter(
@@ -763,6 +771,16 @@ export class FakeCompliance implements ComplianceRepositoryPort {
       this.cases.filter(
         (c) => c.applicationId === applicationId && c.status !== 'CLOSED',
       ),
+    );
+  }
+  listCases(filter: {
+    statuses: ComplianceCaseRecord['status'][];
+    limit: number;
+  }): Promise<ComplianceCaseRecord[]> {
+    return Promise.resolve(
+      this.cases
+        .filter((c) => filter.statuses.includes(c.status))
+        .slice(0, filter.limit),
     );
   }
   updateCase(c: ComplianceCaseRecord): Promise<void> {

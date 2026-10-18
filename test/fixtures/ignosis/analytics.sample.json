@@ -1,0 +1,16 @@
+{
+  "overallAnalysis": { "totalCreditAmount": 1250000.5, "totalDebitAmount": "980000", "averageBalance": 310000, "monthlyAnalytics": [{ "month": 8, "year": 2026, "totalCreditAmount": 600000, "totalDebitAmount": 450000 }, { "month": 9, "year": 2026, "totalCreditAmount": 650000.5, "totalDebitAmount": 530000 }], "weeklyAnalytics": [{ "week": 1, "month": 9, "year": 2026, "totalCreditAmount": 100000, "totalDebitAmount": 90000 }], "dailyAnalytics": [{ "day": 1, "month": 9, "year": 2026, "date": "2026-09-01", "dailyOpeningBalance": 300000, "endOfDayBalance": 305000 }] },
+  "accountWiseAnalysis": [{ "accountNumber": "XXXX5678", "bank": "HDFC", "linkedAccRef": "ref-1", "totalCreditAmount": 1250000.5, "totalDebitAmount": 980000, "monthlyAnalytics": [], "weeklyAnalytics": [], "dailyAnalytics": [] }],
+  "frequentCredits": { "salaryAnalysis": { "overall": { "identified": true, "totalNoOfCredits": 3, "totalIncomeAmountLast90Days": 450000 }, "accountWise": [{ "identified": true, "totalNoOfCredits": 3, "totalIncomeAmountLast90Days": 450000, "accountNumber": "XXXX5678" }] }, "otherIncomeAnalysis": { "overall": { "identified": false, "totalNoOfCredits": 0, "totalIncomeAmountLast90Days": 0 }, "accountWise": [] }, "recurringIncomes": [] },
+  "frequentDebits": { "emiAnalysis": { "overall": { "identified": true, "totalNoOfDebits": 3, "totalObligationAmountLast90Days": 90000 }, "accountWise": [] }, "nonEmiObligationAnalysis": { "overall": { "identified": false, "totalNoOfDebits": 0 }, "accountWise": [] } },
+  "loanCreditSummary": { "totalLoanCreditAmount": 0, "totalLoanCreditTxns": 0, "overallLoanCreditAnalysis": {} },
+  "abbTables": { "overall": { "averageOfMonthlyAverages": 287500.25, "monthlyData": [280000, 295000.5] }, "accountWise": [] },
+  "score": 712,
+  "mutualFundAnalysis": { "overallAnalysis": { "totalInvestedAmount": 2000000, "totalPortfolioValue": 2350000, "profitAmount": 350000, "absolutePercentageReturn": 17.5 } },
+  "equityAnalysis": { "overallAnalysis": { "totalInvestedAmount": 500000, "totalPortfolioValue": "540000", "profitAmount": 40000, "absolutePercentageReturn": 8 }, "sectorBasedAnalysis": {} },
+  "nudgeInfo": { "nudges": [{ "nudgeId": "n1", "description": "Salary increased", "type": "INCOME", "parameter": { "delta": 0.1 }, "nudgeLink": "https://x" }], "nudgeWidgetLink": "https://w" },
+  "profiles": [{ "name": "Steady Earner" }, { "name": "Investor" }],
+  "allTransactions": [{ "displayName": "Salary", "merchantName": "ACME" }, { "displayName": "Rent" }],
+  "bounceAnalysis": { "totalBounces": 0 },
+  "fcuIndicators": { "flags": [] }
+}

@@ -101,6 +101,14 @@
   {
    "key": "payment_reference",
    "value": ""
+  },
+  {
+   "key": "reviewer_id",
+   "value": "ops-1"
+  },
+  {
+   "key": "case_id",
+   "value": ""
   }
  ],
  "event": [
@@ -1287,6 +1295,145 @@
     "body": {
      "mode": "raw",
      "raw": "{\n  \"identity_version\": 1,\n  \"profile_version\": 1,\n  \"declaration_version\": 1,\n  \"policy_version\": \"aml_v1\"\n}"
+    }
+   }
+  },
+  {
+   "name": "Reviewer \u00b7 open cases",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     },
+     {
+      "key": "X-Reviewer-Id",
+      "value": "{{reviewer_id}}"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/review/cases?status=OPEN&limit=50"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "const b = pm.response.json(); if (b[0]) pm.collectionVariables.set('case_id', b[0].case_id);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "Reviewer \u00b7 tasks",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     },
+     {
+      "key": "X-Reviewer-Id",
+      "value": "{{reviewer_id}}"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/review/tasks?status=OPEN,UNDER_REVIEW"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "const b = pm.response.json(); if (b[0]) pm.collectionVariables.set('task_id', b[0].task_id);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "Reviewer \u00b7 decide case",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     },
+     {
+      "key": "X-Reviewer-Id",
+      "value": "{{reviewer_id}}"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/review/cases/{{case_id}}/decisions",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"decision\": \"PROCEED\",\n  \"reason\": \"Documented reason for the decision (min 10 chars).\"\n}"
+    }
+   }
+  },
+  {
+   "name": "Reviewer \u00b7 accept bank evidence",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     },
+     {
+      "key": "X-Reviewer-Id",
+      "value": "{{reviewer_id}}"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/review/applications/{{application_id}}/bank-evidence",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"verification_id\": \"{{bank_verification_id}}\",\n  \"reason\": \"Cancelled cheque verified by reviewer.\"\n}"
+    }
+   }
+  },
+  {
+   "name": "Reviewer \u00b7 resolve task",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     },
+     {
+      "key": "X-Reviewer-Id",
+      "value": "{{reviewer_id}}"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/review/tasks/{{task_id}}/resolution",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"resolution\": \"RESOLVED\",\n  \"reason\": \"Clarification reviewed and accepted.\"\n}"
     }
    }
   }

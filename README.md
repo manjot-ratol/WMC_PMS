@@ -58,6 +58,7 @@ npm run lint
 | 24 | `GET …/funding-status` (reconciled funds and activation readiness) | session bearer |
 | 25 | `GET …/completion` (backend-confirmed ACTIVE only) | session bearer |
 | internal | `POST /internal/v1/applications/{id}/account-opening-runs`, `…/underlying-accounts`, `…/funding-receipts` (feeds keyed by `provider_receipt_key`; replays are acknowledged, never double-counted), `…/screening-runs`, `…/aml-assessments` (TrackWizz jobs A/B re-runs) | `X-Internal-Token` |
+| reviewer | `GET /internal/v1/review/cases`, `GET …/tasks`, `POST …/cases/{id}/decisions` (PROCEED/HOLD/REJECT + reason), `POST …/applications/{id}/bank-evidence`, `POST …/tasks/{id}/resolution` | `X-Internal-Token` + mandatory `X-Reviewer-Id` (recorded on every decision and audit row) |
 | webhook | `POST /v1/integrations/digio/webhooks` (KRA status, DigiStudio and DigiSign events) | `X-Digio-Checksum` HMAC |
 
 All mutating routes require an `Idempotency-Key` header. Swagger documents request and response shapes at `/docs`.
@@ -76,3 +77,9 @@ document verification, IPV evaluation and webhook processing all run as queue jo
 
 Secrets never go in the repo. Digio sandbox credentials come from your Digio account manager; TrackWizz and MF
 Central UAT credentials are supplied by those vendors. Put them in `.env`.
+
+## Analytics and other connectors
+
+- Backend analytics events are written to `analytics_outbox` with allowlisted properties only and shipped by the worker's `analytics-dispatch` tick to CleverTap (`POST /1/upload`) when `CLEVERTAP_ENABLED=true`; otherwise a log sink records names and counts. The dispatcher re-applies the allowlist and logs a privacy incident for anything else.
+- MF Central CAS (`MfCentralGateway`): token → encrypt → sign → `newCasRequest` / `validateQRCode` → decrypt, exactly as the UAT collection. `MFCENTRAL_CRYPTO_MODE=remote` uses MF Central's `/api/test/*` helpers; `local` signs with the private JWK (detached RS256, `b64:false`) and uses an AES placeholder marked unverified. Connector only, no business wiring (owner decision).
+- Ignosis bank analytics: `parseIgnosisAnalytics` types the documented JSON tags (overall, account-wise, salary/EMI, loans, ABB, score, MF/equity/FD summaries, nudges). No API contract was supplied, so there is no gateway.

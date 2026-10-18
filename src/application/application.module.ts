@@ -9,6 +9,7 @@ import { FundingService } from './funding/funding.service';
 import { ProcessingService } from './processing/processing.service';
 import { SigningService } from './signing/signing.service';
 import { ComplianceService } from './compliance/compliance.service';
+import { BackOfficeReviewService } from './back-office/back-office-review.service';
 import { FeesService } from './fees/fees.service';
 import { ReviewService } from './review/review.service';
 import { SuitabilityService } from './suitability/suitability.service';
@@ -55,6 +56,7 @@ import { EmailVerificationService } from './onboarding/email-verification.servic
     AccountOpeningService,
     FundingService,
     ComplianceService,
+    BackOfficeReviewService,
   ],
   exports: [
     PhoneChallengeService,
@@ -79,6 +81,7 @@ import { EmailVerificationService } from './onboarding/email-verification.servic
     AccountOpeningService,
     FundingService,
     ComplianceService,
+    BackOfficeReviewService,
   ],
 })
 export class ApplicationServicesModule {}

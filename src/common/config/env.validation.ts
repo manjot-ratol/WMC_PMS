@@ -83,6 +83,9 @@ export class EnvSchema {
   @IsOptional() @IsString() MFCENTRAL_ENCRYPTION_KEY = '';
   @IsOptional() @IsString() MFCENTRAL_PRIVATE_JWK = '';
   @Transform(toInt) @IsInt() @Min(1000) MFCENTRAL_TIMEOUT_MS = 30000;
+  @IsIn(['remote', 'local']) MFCENTRAL_CRYPTO_MODE: 'remote' | 'local' =
+    'remote';
+  @IsString() MFCENTRAL_APP_URL = 'https://uatapp.mfcentral.com';
 
   @Transform(toBool) @IsBoolean() CLEVERTAP_ENABLED = false;
   @IsString() CLEVERTAP_BASE_URL = 'https://in1.api.clevertap.com';

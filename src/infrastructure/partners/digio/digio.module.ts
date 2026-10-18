@@ -14,6 +14,8 @@ import { DigioKraGateway } from './kra/kra.gateway';
 import { DigioWebhookVerifier } from './webhooks/digio-webhook.verifier';
 import { TRACKWIZZ_GATEWAY } from '../../../application/ports/trackwizz-gateway.port';
 import { TrackWizzGateway } from '../trackwizz/trackwizz.gateway';
+import { MFCENTRAL_GATEWAY } from '../../../application/ports/mfcentral-gateway.port';
+import { MfCentralGateway } from '../mfcentral/mfcentral.gateway';
 
 /** Digio partner adapters, available process-wide; inject by port token. */
 @Global()
@@ -27,7 +29,9 @@ import { TrackWizzGateway } from '../trackwizz/trackwizz.gateway';
     DigioEsignGateway,
     DigioCkycGateway,
     TrackWizzGateway,
+    MfCentralGateway,
     { provide: TRACKWIZZ_GATEWAY, useExisting: TrackWizzGateway },
+    { provide: MFCENTRAL_GATEWAY, useExisting: MfCentralGateway },
     { provide: ESIGN_GATEWAY, useExisting: DigioEsignGateway },
     { provide: CKYC_GATEWAY, useExisting: DigioCkycGateway },
     { provide: KRA_GATEWAY, useExisting: DigioKraGateway },
@@ -36,6 +40,8 @@ import { TrackWizzGateway } from '../trackwizz/trackwizz.gateway';
     { provide: BANK_GATEWAY, useExisting: DigioBankGateway },
   ],
   exports: [
+    MFCENTRAL_GATEWAY,
+    MfCentralGateway,
     TRACKWIZZ_GATEWAY,
     TrackWizzGateway,
     ESIGN_GATEWAY,

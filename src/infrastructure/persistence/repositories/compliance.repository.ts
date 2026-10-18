@@ -165,6 +165,17 @@ export class ComplianceRepository implements ComplianceRepositoryPort {
     });
     return rows.map(toCase);
   }
+  async listCases(
+    filter: { statuses: CaseStatus[]; limit: number },
+    tx?: TransactionContext,
+  ): Promise<ComplianceCaseRecord[]> {
+    const rows = await clientOf(this.prisma, tx).complianceCase.findMany({
+      where: { status: { in: filter.statuses } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: filter.limit,
+    });
+    return rows.map(toCase);
+  }
   async updateCase(
     c: ComplianceCaseRecord,
     tx?: TransactionContext,

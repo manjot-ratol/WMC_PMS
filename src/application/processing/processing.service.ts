@@ -25,7 +25,8 @@ import {
 } from '../ports/verification.repository.port';
 
 export interface ProcessingStatusView {
-  applicationStatus: 'IN_PROGRESS' | 'PROCESSING' | 'ACTIVE' | 'ASSISTED';
+  applicationStatus:
+    'IN_PROGRESS' | 'PROCESSING' | 'ACTIVE' | 'ASSISTED' | 'CLOSED';
   tasks: { taskId: string; category: string; status: string }[];
   customerActionRequired: boolean;
   nextScreen: Screen;
@@ -74,15 +75,19 @@ export class ProcessingService {
           ? 'PROCESSING'
           : app.status === 'ASSISTED'
             ? 'ASSISTED'
-            : 'IN_PROGRESS';
+            : app.status === 'REJECTED'
+              ? 'CLOSED'
+              : 'IN_PROGRESS';
     const nextScreen: Screen =
       app.status === 'ACTIVE'
         ? 'PORTFOLIO'
-        : app.status === 'SUBMITTED'
-          ? hasCompleted(app, 'ACCOUNT_OPENING')
-            ? app.nextScreen
-            : 'APPLICATION_PROCESSING'
-          : app.nextScreen;
+        : app.status === 'REJECTED'
+          ? 'ASSISTED_ONBOARDING'
+          : app.status === 'SUBMITTED'
+            ? hasCompleted(app, 'ACCOUNT_OPENING')
+              ? app.nextScreen
+              : 'APPLICATION_PROCESSING'
+            : app.nextScreen;
     return {
       applicationStatus,
       tasks: open.map((t) => ({

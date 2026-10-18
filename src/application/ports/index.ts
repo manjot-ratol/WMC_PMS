@@ -38,3 +38,6 @@ export * from './signing.repository.port';
 export * from './account-opening.repository.port';
 export * from './funding.repository.port';
 export * from './activation.repository.port';
+export * from './analytics-outbox.port';
+export * from './mfcentral-gateway.port';
+export * from './trackwizz-gateway.port';

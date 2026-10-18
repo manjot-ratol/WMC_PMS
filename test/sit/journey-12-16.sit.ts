@@ -306,6 +306,93 @@ describe('SIT: journey screens 12-16', () => {
     worker.trackwizz.setScenario('RISK_LOW');
   });
 
+  it('reviewer API: cases are listed, a PROCEED decision overrides the STOP run, and the reviewer id is on the audit trail', async () => {
+    const reviewer = {
+      'X-Internal-Token': process.env.INTERNAL_SERVICE_TOKEN!,
+      'X-Reviewer-Id': 'sit-reviewer',
+    };
+    await sit
+      .http()
+      .get('/internal/v1/review/cases')
+      .set('X-Internal-Token', process.env.INTERNAL_SERVICE_TOKEN!)
+      .expect(401);
+    const cases = json({
+      body: (
+        await sit
+          .http()
+          .get('/internal/v1/review/cases?status=OPEN&limit=100')
+          .set(reviewer)
+          .expect(200)
+      ).body,
+    }) as unknown as {
+      case_id: string;
+      application_id: string;
+      kind: string;
+    }[];
+    const mine = cases.filter((c) => c.application_id === applicationId);
+    expect(mine.map((c) => c.kind).sort()).toEqual([
+      'AML_HIGH_RISK',
+      'SCREENING_HIT',
+    ]);
+    const screening = mine.find((c) => c.kind === 'SCREENING_HIT')!;
+    const d = json(
+      await sit
+        .http()
+        .post(`/internal/v1/review/cases/${screening.case_id}/decisions`)
+        .set(reviewer)
+        .send({
+          decision: 'PROCEED',
+          reason: 'SIT: confirmed false positive after document review.',
+        })
+        .expect(200),
+    );
+    expect(d).toMatchObject({
+      case_id: screening.case_id,
+      case_status: 'CLOSED',
+    });
+    const run = await prisma.screeningRun.findFirst({
+      where: { applicationId },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(run?.status).toBe('PROCEED');
+    const decision = await prisma.reviewDecision.findFirst({
+      where: { caseId: screening.case_id },
+    });
+    expect(decision).toMatchObject({
+      reviewerId: 'sit-reviewer',
+      decision: 'PROCEED',
+    });
+    const audit = await prisma.auditEvent.findFirst({
+      where: { aggregateId: applicationId, action: 'review.decision' },
+    });
+    expect(audit).toMatchObject({
+      actorType: 'REVIEWER',
+      actorId: 'sit-reviewer',
+    });
+    const aml = mine.find((c) => c.kind === 'AML_HIGH_RISK')!;
+    expect(
+      json(
+        await sit
+          .http()
+          .post(`/internal/v1/review/cases/${aml.case_id}/decisions`)
+          .set(reviewer)
+          .send({
+            decision: 'HOLD',
+            reason: 'SIT: enhanced due diligence in progress.',
+          })
+          .expect(200),
+      ).case_status,
+    ).toBe('UNDER_REVIEW');
+    const blob = JSON.stringify(
+      await prisma.analyticsOutbox.findMany({
+        where: {
+          properties: { path: ['application_id'], equals: applicationId },
+        },
+      }),
+    );
+    expect(blob).not.toMatch(/false positive|sit-reviewer|case_/);
+  });
+
   it('14-15: bank verification runs through the worker and WireMock; repeated taps reuse the verification', async () => {
     const body = {
       account_number: '999900001234',

@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ANALYTICS } from '../../application/ports/analytics.port';
 import { BANK_REPOSITORY } from '../../application/ports/bank.repository.port';
 import { ACCOUNT_OPENING_REPOSITORY } from '../../application/ports/account-opening.repository.port';
+import { ANALYTICS_OUTBOX } from '../../application/ports/analytics-outbox.port';
 import { ACTIVATION_REPOSITORY } from '../../application/ports/activation.repository.port';
 import { FUNDING_REPOSITORY } from '../../application/ports/funding.repository.port';
 import { SIGNING_REPOSITORY } from '../../application/ports/signing.repository.port';
@@ -91,6 +92,7 @@ import { PrismaUnitOfWork } from './unit-of-work';
     { provide: SESSION_REPOSITORY, useClass: SessionRepository },
     { provide: ELIGIBILITY_REPOSITORY, useClass: EligibilityRepository },
     { provide: ANALYTICS, useClass: AnalyticsOutboxRepository },
+    { provide: ANALYTICS_OUTBOX, useClass: AnalyticsOutboxRepository },
     { provide: IDENTITY_REPOSITORY, useClass: IdentityRepository },
     { provide: KYC_RECORD_REPOSITORY, useClass: KycRecordRepository },
     { provide: KYC_SESSION_REPOSITORY, useClass: KycSessionRepository },
@@ -117,6 +119,7 @@ import { PrismaUnitOfWork } from './unit-of-work';
     SESSION_REPOSITORY,
     ELIGIBILITY_REPOSITORY,
     ANALYTICS,
+    ANALYTICS_OUTBOX,
     IDENTITY_REPOSITORY,
     KYC_RECORD_REPOSITORY,
     KYC_SESSION_REPOSITORY,

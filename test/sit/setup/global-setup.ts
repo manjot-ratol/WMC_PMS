@@ -42,7 +42,7 @@ export default async function globalSetup(): Promise<void> {
     stdio: 'pipe',
     env: process.env,
     input:
-      "UPDATE reliability.business_outbox SET dispatched_at = now(), last_error = 'dead: sit-reset' WHERE dispatched_at IS NULL;",
+      "UPDATE reliability.business_outbox SET dispatched_at = now(), last_error = 'dead: sit-reset' WHERE dispatched_at IS NULL; UPDATE reliability.analytics_outbox SET dispatched_at = now(), last_error = 'dead: sit-reset' WHERE dispatched_at IS NULL;",
   });
   // The SIT redis db (index 15) is dedicated to tests: clear rate-limit counters and leftovers from earlier runs.
   const redis = new Redis(process.env.REDIS_URL!);

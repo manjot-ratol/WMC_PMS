@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { MessageSpy } from '../../src/infrastructure/messaging/message-spy';
 import { startSitApp, type SitApp } from './setup/test-app';
+import { eventually, startSitWorker } from './setup/worker';
 
 interface Envelope {
   error: { code: string; message: string; retryable: boolean };
@@ -312,6 +313,31 @@ describe('SIT: journey screens 01-05', () => {
     expect(blob).not.toContain(phone);
     expect(blob).not.toContain(email);
     for (const m of spy.messages) expect(blob).not.toContain(m.otp);
+  });
+
+  it('analytics: the worker dispatches the outbox through the local sink (names only) and marks rows dispatched', async () => {
+    const worker = await startSitWorker();
+    try {
+      await eventually(async () => {
+        const pending = await prisma.analyticsOutbox.count({
+          where: {
+            properties: { path: ['application_id'], equals: applicationId },
+            dispatchedAt: null,
+          },
+        });
+        return pending === 0 ? true : null;
+      }, 30_000);
+    } finally {
+      await worker.stop();
+    }
+    const rows = await prisma.analyticsOutbox.findMany({
+      where: {
+        properties: { path: ['application_id'], equals: applicationId },
+      },
+    });
+    expect(
+      rows.every((r) => r.dispatchedAt !== null && r.lastError === null),
+    ).toBe(true);
   });
 
   it('abuse: the sixth phone challenge for one number inside the window is 429', async () => {

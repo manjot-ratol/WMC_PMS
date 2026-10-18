@@ -167,6 +167,18 @@ export class TaskRepository implements TaskRepositoryPort {
       },
     });
   }
+  async listByStatus(
+    statuses: TaskRecord['status'][],
+    limit: number,
+    tx?: TransactionContext,
+  ): Promise<TaskRecord[]> {
+    const rows = await clientOf(this.prisma, tx).task.findMany({
+      where: { status: { in: statuses } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: limit,
+    });
+    return rows.map(toTask);
+  }
   async listOpen(
     applicationId: string,
     tx?: TransactionContext,

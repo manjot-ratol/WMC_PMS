@@ -48,6 +48,12 @@ export interface TaskRepositoryPort {
     applicationId: string,
     tx?: TransactionContext,
   ): Promise<TaskRecord[]>;
+  /** Back-office listing across applications, oldest first. */
+  listByStatus(
+    statuses: TaskRecord['status'][],
+    limit: number,
+    tx?: TransactionContext,
+  ): Promise<TaskRecord[]>;
   createResponse(r: TaskResponseRecord, tx?: TransactionContext): Promise<void>;
 }
 export const TASK_REPOSITORY = Symbol('TASK_REPOSITORY');

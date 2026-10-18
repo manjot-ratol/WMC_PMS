@@ -88,6 +88,11 @@ export interface ComplianceRepositoryPort {
     applicationId: string,
     tx?: TransactionContext,
   ): Promise<ComplianceCaseRecord[]>;
+  /** Back-office listing across applications, oldest first. */
+  listCases(
+    filter: { statuses: CaseStatus[]; limit: number },
+    tx?: TransactionContext,
+  ): Promise<ComplianceCaseRecord[]>;
   updateCase(c: ComplianceCaseRecord, tx?: TransactionContext): Promise<void>;
   createDecision(
     d: ReviewDecisionRecord,

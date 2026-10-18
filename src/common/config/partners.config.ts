@@ -40,6 +40,8 @@ export const partnersConfig = registerAs('partners', () => {
       encryptionKey: e.MFCENTRAL_ENCRYPTION_KEY,
       privateJwk: e.MFCENTRAL_PRIVATE_JWK,
       timeoutMs: e.MFCENTRAL_TIMEOUT_MS,
+      cryptoMode: e.MFCENTRAL_CRYPTO_MODE,
+      appUrl: trimUrl(e.MFCENTRAL_APP_URL),
     },
     ignosis: { timeoutMs: 30000 },
     clevertap: {
