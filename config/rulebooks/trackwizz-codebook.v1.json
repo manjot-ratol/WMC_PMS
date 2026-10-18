@@ -1,0 +1,14 @@
+{
+  "version": "trackwizz_codebook_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: tenant codebooks (occupation, income, PEP, country, profiles) must be confirmed with TrackWizz; sample values are not production codes.",
+  "screeningPurposes": "01,04",
+  "riskPurpose": "06",
+  "constitutionType": "1",
+  "segment": "3",
+  "screeningProfile": "DEFAULT",
+  "riskProfile": "DEFAULT",
+  "occupationTypes": { "PRIVATE_SECTOR": "SA", "PUBLIC_SECTOR": "SA", "GOVERNMENT_SERVICE": "SA", "BUSINESS": "SE", "PROFESSIONAL": "SE", "AGRICULTURIST": "AG", "RETIRED": "RT", "HOUSEWIFE": "HW", "STUDENT": "ST", "OTHERS": "OT" },
+  "incomeRanges": { "INR_BELOW_1L": "1", "INR_1L_5L": "2", "INR_5L_10L": "3", "INR_10L_25L": "4", "INR_25L_1CR": "5", "INR_ABOVE_1CR": "6" },
+  "pep": { "NOT_PEP": "NotAPEP", "PEP": "PEP", "RELATED_TO_PEP": "RelatedToPEP" },
+  "countries": { "IN": "IND", "US": "USA", "GB": "GBR", "AE": "ARE", "SG": "SGP", "CA": "CAN", "AU": "AUS" }
+}

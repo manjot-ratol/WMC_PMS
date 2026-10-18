@@ -622,7 +622,9 @@ export class FakeInbox implements InboxPort {
 import type { BankRepositoryPort } from '../../src/application/ports/bank.repository.port';
 import type {
   AmlAssessmentRecord,
+  ComplianceCaseRecord,
   ComplianceRepositoryPort,
+  ReviewDecisionRecord,
   ScreeningRunRecord,
 } from '../../src/application/ports/compliance.repository.port';
 import type { NominationRepositoryPort } from '../../src/application/ports/nomination.repository.port';
@@ -731,6 +733,47 @@ export class FakeNominations implements NominationRepositoryPort {
 export class FakeCompliance implements ComplianceRepositoryPort {
   readonly runs: ScreeningRunRecord[] = [];
   readonly assessments: AmlAssessmentRecord[] = [];
+  readonly cases: ComplianceCaseRecord[] = [];
+  readonly decisions: ReviewDecisionRecord[] = [];
+  findScreeningRun(id: string): Promise<ScreeningRunRecord | null> {
+    return Promise.resolve(this.runs.find((r) => r.id === id) ?? null);
+  }
+  findAmlAssessment(id: string): Promise<AmlAssessmentRecord | null> {
+    return Promise.resolve(this.assessments.find((a) => a.id === id) ?? null);
+  }
+  updateScreeningRun(run: ScreeningRunRecord): Promise<void> {
+    const i = this.runs.findIndex((r) => r.id === run.id);
+    if (i >= 0) this.runs[i] = run;
+    return Promise.resolve();
+  }
+  updateAmlAssessment(a: AmlAssessmentRecord): Promise<void> {
+    const i = this.assessments.findIndex((r) => r.id === a.id);
+    if (i >= 0) this.assessments[i] = a;
+    return Promise.resolve();
+  }
+  createCase(c: ComplianceCaseRecord): Promise<void> {
+    this.cases.push(c);
+    return Promise.resolve();
+  }
+  findCase(id: string): Promise<ComplianceCaseRecord | null> {
+    return Promise.resolve(this.cases.find((c) => c.id === id) ?? null);
+  }
+  listOpenCases(applicationId: string): Promise<ComplianceCaseRecord[]> {
+    return Promise.resolve(
+      this.cases.filter(
+        (c) => c.applicationId === applicationId && c.status !== 'CLOSED',
+      ),
+    );
+  }
+  updateCase(c: ComplianceCaseRecord): Promise<void> {
+    const i = this.cases.findIndex((x) => x.id === c.id);
+    if (i >= 0) this.cases[i] = c;
+    return Promise.resolve();
+  }
+  createDecision(d: ReviewDecisionRecord): Promise<void> {
+    this.decisions.push(d);
+    return Promise.resolve();
+  }
   createScreeningRun(r: ScreeningRunRecord): Promise<void> {
     this.runs.push(r);
     return Promise.resolve();
@@ -739,19 +782,25 @@ export class FakeCompliance implements ComplianceRepositoryPort {
     this.assessments.push(a);
     return Promise.resolve();
   }
-  supersedeOpen(applicationId: string): Promise<void> {
-    for (const r of this.runs)
-      if (
-        r.applicationId === applicationId &&
-        (r.status === 'QUEUED' || r.status === 'RUNNING')
-      )
-        r.status = 'SUPERSEDED';
-    for (const a of this.assessments)
-      if (
-        a.applicationId === applicationId &&
-        (a.status === 'QUEUED' || a.status === 'RUNNING')
-      )
-        a.status = 'SUPERSEDED';
+  supersedeOpen(
+    applicationId: string,
+    _tx?: unknown,
+    kind?: 'SCREENING' | 'AML',
+  ): Promise<void> {
+    if (kind !== 'AML')
+      for (const r of this.runs)
+        if (
+          r.applicationId === applicationId &&
+          (r.status === 'QUEUED' || r.status === 'RUNNING')
+        )
+          r.status = 'SUPERSEDED';
+    if (kind !== 'SCREENING')
+      for (const a of this.assessments)
+        if (
+          a.applicationId === applicationId &&
+          (a.status === 'QUEUED' || a.status === 'RUNNING')
+        )
+          a.status = 'SUPERSEDED';
     return Promise.resolve();
   }
   latestScreeningRun(

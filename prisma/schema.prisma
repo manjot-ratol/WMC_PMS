@@ -437,6 +437,8 @@ model ScreeningRun {
   screeningPolicyVersion  String    @map("screening_policy_version")
   status                  String
   suggestedAction         String?   @map("suggested_action")
+  hitsCount               Int?      @map("hits_count")
+  confirmedHit            Boolean?  @map("confirmed_hit")
   providerRequestId       String?   @map("provider_request_id")
   evidenceKey             String?   @map("evidence_key")
   safeErrorCategory       String?   @map("safe_error_category")
@@ -688,4 +690,41 @@ model TaskResponse {
   @@index([taskId])
   @@map("task_responses")
   @@schema("onboarding")
+}
+
+// ---------------- phase 7: compliance cases and review decisions (restricted) ----------------
+
+model ComplianceCase {
+  id              String    @id
+  applicationId   String    @map("application_id")
+  kind            String
+  sourceRunId     String    @map("source_run_id")
+  severity        String
+  status          String
+  providerCaseId  String?   @map("provider_case_id")
+  providerCaseUrl String?   @map("provider_case_url")
+  summary         Json
+  createdAt       DateTime  @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  closedAt        DateTime? @map("closed_at") @db.Timestamptz
+
+  @@index([applicationId, status])
+  @@index([status])
+  @@map("compliance_cases")
+  @@schema("compliance")
+}
+
+model ReviewDecision {
+  id            String   @id
+  caseId        String   @map("case_id")
+  applicationId String   @map("application_id")
+  reviewerId    String   @map("reviewer_id")
+  decision      String
+  reason        String
+  createdAt     DateTime @map("created_at") @db.Timestamptz
+
+  @@index([caseId])
+  @@index([applicationId])
+  @@map("review_decisions")
+  @@schema("compliance")
 }

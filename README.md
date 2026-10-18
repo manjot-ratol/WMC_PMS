@@ -57,14 +57,16 @@ npm run lint
 | 23 | `GET …/funding-instructions` (released only after execution and account readiness), `POST …/funding-notifications` (202, a hint) | session bearer |
 | 24 | `GET …/funding-status` (reconciled funds and activation readiness) | session bearer |
 | 25 | `GET …/completion` (backend-confirmed ACTIVE only) | session bearer |
-| internal | `POST /internal/v1/applications/{id}/account-opening-runs`, `…/underlying-accounts`, `…/funding-receipts` (feeds keyed by `provider_receipt_key`; replays are acknowledged, never double-counted) | `X-Internal-Token` |
+| internal | `POST /internal/v1/applications/{id}/account-opening-runs`, `…/underlying-accounts`, `…/funding-receipts` (feeds keyed by `provider_receipt_key`; replays are acknowledged, never double-counted), `…/screening-runs`, `…/aml-assessments` (TrackWizz jobs A/B re-runs) | `X-Internal-Token` |
 | webhook | `POST /v1/integrations/digio/webhooks` (KRA status, DigiStudio and DigiSign events) | `X-Digio-Checksum` HMAC |
 
 All mutating routes require an `Idempotency-Key` header. Swagger documents request and response shapes at `/docs`.
 `postman/wmc_pms.postman_collection.json` chains the journey; email OTPs are visible in Mailpit at
 http://localhost:8025, phone OTPs are never logged (the SIT suite reads them through an in-memory spy).
 
-Rulebooks live in `config/rulebooks/` (eligibility, KYC reliance, document requirements, IPV thresholds, profile vocabulary, tax, bank name-match thresholds, nomination, suitability questionnaire/scoring/approach map, fee schedule and illustration scenarios, document pack matrix, account-opening registries, funding, activation gates); document templates in `config/document-templates/`; all are
+Rulebooks live in `config/rulebooks/` (eligibility, KYC reliance, document requirements, IPV thresholds, profile vocabulary, tax, bank name-match thresholds, nomination, suitability questionnaire/scoring/approach map, fee schedule and illustration scenarios, document pack matrix, account-opening registries, funding, activation gates, TrackWizz codebooks); document templates in `config/document-templates/`.
+
+TrackWizz AS501 runs through an encrypted envelope (`TrackWizzEnvelope`, parameters in `TRACKWIZZ_CRYPTO_PROFILE` until vendor test vectors are pinned). WireMock cannot encrypt, so local runs and SIT use the in-process mock: `npm run mock:trackwizz` (keys in `test/fixtures/trackwizz`, test-only).; all are
 placeholder content pending Compliance. Digio API references used for the connectors are under `docs/partners/digio/`.
 
 The worker (`npm run start:worker`) must be running for screens 06–11: KRA lookup, DigiStudio status polling,

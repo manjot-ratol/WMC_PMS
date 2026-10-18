@@ -150,9 +150,11 @@ export class DeclarationsService {
 
       const profile = await this.profiles.latest(app.id, tx);
       await this.compliance.supersedeOpen(app.id, tx);
+      const screeningRunId = this.ids.prefixed(ID_PREFIX.screeningRun);
+      const assessmentId = this.ids.prefixed(ID_PREFIX.amlAssessment);
       await this.compliance.createScreeningRun(
         {
-          id: this.ids.prefixed(ID_PREFIX.screeningRun),
+          id: screeningRunId,
           applicationId: app.id,
           identityVersion: identity.version,
           screeningPolicyVersion: SCREENING_POLICY_VERSION,
@@ -163,7 +165,7 @@ export class DeclarationsService {
       );
       await this.compliance.createAmlAssessment(
         {
-          id: this.ids.prefixed(ID_PREFIX.amlAssessment),
+          id: assessmentId,
           applicationId: app.id,
           identityVersion: identity.version,
           profileVersion: profile?.version ?? 0,
@@ -171,6 +173,24 @@ export class DeclarationsService {
           policyVersion: AML_POLICY_VERSION,
           status: 'QUEUED',
           createdAt: now,
+        },
+        tx,
+      );
+      await this.outbox.add(
+        {
+          aggregateType: 'application',
+          aggregateId: app.id,
+          eventType: 'ScreeningRequested',
+          payload: { screeningRunId },
+        },
+        tx,
+      );
+      await this.outbox.add(
+        {
+          aggregateType: 'application',
+          aggregateId: app.id,
+          eventType: 'AmlAssessmentRequested',
+          payload: { assessmentId },
         },
         tx,
       );

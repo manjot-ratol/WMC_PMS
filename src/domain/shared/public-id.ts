@@ -29,4 +29,6 @@ export const ID_PREFIX = {
   activation: 'act',
   pmsAccount: 'pms',
   taskResponse: 'tr',
+  complianceCase: 'case',
+  reviewDecision: 'rd',
 } as const;

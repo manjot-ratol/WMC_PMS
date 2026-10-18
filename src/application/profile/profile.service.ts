@@ -140,10 +140,11 @@ export class ProfileService {
         // Material profile change reopens the AML assessment with the new inputs.
         const identity = await this.identities.latest(app.id, tx);
         const decl = await this.declarations.latest(app.id, tx);
-        await this.compliance.supersedeOpen(app.id, tx);
+        await this.compliance.supersedeOpen(app.id, tx, 'AML');
+        const assessmentId = this.ids.prefixed(ID_PREFIX.amlAssessment);
         await this.compliance.createAmlAssessment(
           {
-            id: this.ids.prefixed(ID_PREFIX.amlAssessment),
+            id: assessmentId,
             applicationId: app.id,
             identityVersion: identity?.version ?? 0,
             profileVersion: version,
@@ -151,6 +152,15 @@ export class ProfileService {
             policyVersion: AML_POLICY_VERSION,
             status: 'QUEUED',
             createdAt: now,
+          },
+          tx,
+        );
+        await this.outbox.add(
+          {
+            aggregateType: 'application',
+            aggregateId: app.id,
+            eventType: 'AmlAssessmentRequested',
+            payload: { assessmentId },
           },
           tx,
         );

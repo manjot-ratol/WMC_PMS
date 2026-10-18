@@ -182,21 +182,44 @@ describe('SIT: journey screens 21-25', () => {
       }).expect(200),
     );
     snapshotId = confirmed.snapshot_id as string;
-    // Phase 7 (TrackWizz) is not built yet: stand in for its outcome so the activation gates can pass.
-    await prisma.screeningRun.updateMany({
-      where: { applicationId },
-      data: { status: 'PROCEED' },
-    });
-    await prisma.amlAssessment.updateMany({
-      where: { applicationId },
-      data: { status: 'PROCEED', riskValue: 'LOW' },
-    });
   }, 150_000);
   afterAll(async () => {
     if (sit.errorLogs().length)
       console.log(JSON.stringify(sit.errorLogs(), null, 1).slice(0, 4000));
     await worker.stop();
     await sit.stop();
+  });
+
+  it('jobs A/B: the worker screened and risk-rated the application through the TrackWizz mock (real envelope)', async () => {
+    const outcome = await eventually(async () => {
+      const [run, aml] = await Promise.all([
+        prisma.screeningRun.findFirst({
+          where: { applicationId },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.amlAssessment.findFirst({
+          where: { applicationId },
+          orderBy: { createdAt: 'desc' },
+        }),
+      ]);
+      return run?.status === 'PROCEED' && aml?.status === 'PROCEED'
+        ? { run, aml }
+        : null;
+    }, 30_000);
+    expect(outcome.run).toMatchObject({
+      suggestedAction: 'Proceed',
+      hitsCount: 0,
+      confirmedHit: false,
+      providerRequestId: outcome.run.id,
+    });
+    expect(outcome.aml).toMatchObject({ riskValue: 'Low' });
+    expect(worker.trackwizz.requests.map((r) => r.purpose).sort()).toEqual([
+      '01,04',
+      '06',
+    ]);
+    expect(worker.trackwizz.requests[0].headers['apitoken']).toBe(
+      'sit-api-token',
+    );
   });
 
   it('21: a signing session renders the pack, hashes it, and opens one Digio request; funding is still withheld', async () => {

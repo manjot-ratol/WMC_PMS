@@ -43,6 +43,10 @@ import {
   FUNDING_RULEBOOK,
   loadFundingRulebook,
 } from '../domain/funding/funding';
+import {
+  TRACKWIZZ_CODEBOOK,
+  loadTrackWizzCodebook,
+} from '../domain/compliance/as501';
 
 /** Versioned configuration loaded once per process. */
 export const KycRelianceRulebookProviders: Provider[] = [
@@ -78,4 +82,5 @@ export const KycRelianceRulebookProviders: Provider[] = [
   },
   { provide: FUNDING_RULEBOOK, useFactory: () => loadFundingRulebook() },
   { provide: ACTIVATION_RULEBOOK, useFactory: () => loadActivationRulebook() },
+  { provide: TRACKWIZZ_CODEBOOK, useFactory: () => loadTrackWizzCodebook() },
 ];

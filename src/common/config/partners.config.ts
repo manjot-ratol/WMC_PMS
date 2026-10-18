@@ -2,6 +2,8 @@ import { registerAs } from '@nestjs/config';
 import { env } from './env.validation';
 
 const trimUrl = (u: string) => u.replace(/\/+$/, '');
+/** PEMs arrive through env files that cannot hold newlines; accept the escaped form. */
+const pem = (v: string) => v.replace(/\\n/g, '\n');
 
 export const partnersConfig = registerAs('partners', () => {
   const e = env();
@@ -24,9 +26,10 @@ export const partnersConfig = registerAs('partners', () => {
       cluster: e.TRACKWIZZ_CLUSTER,
       domain: e.TRACKWIZZ_DOMAIN,
       sourceSystemName: e.TRACKWIZZ_SOURCE_SYSTEM_NAME,
-      ourPrivateKeyPem: e.TRACKWIZZ_OUR_PRIVATE_KEY_PEM,
-      theirPublicKeyPem: e.TRACKWIZZ_THEIR_PUBLIC_KEY_PEM,
+      ourPrivateKeyPem: pem(e.TRACKWIZZ_OUR_PRIVATE_KEY_PEM),
+      theirPublicKeyPem: pem(e.TRACKWIZZ_THEIR_PUBLIC_KEY_PEM),
       timeoutMs: e.TRACKWIZZ_TIMEOUT_MS,
+      cryptoProfile: e.TRACKWIZZ_CRYPTO_PROFILE,
     },
     mfcentral: {
       baseUrl: trimUrl(e.MFCENTRAL_BASE_URL),

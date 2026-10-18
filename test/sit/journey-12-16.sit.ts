@@ -220,6 +220,92 @@ describe('SIT: journey screens 12-16', () => {
     );
   });
 
+  it('jobs A/B: screening and AML complete through the TrackWizz mock; a confirmed-hit re-run opens a restricted case', async () => {
+    await eventually(async () => {
+      const [run, aml] = await Promise.all([
+        prisma.screeningRun.findFirst({
+          where: { applicationId, status: 'PROCEED' },
+        }),
+        prisma.amlAssessment.findFirst({
+          where: { applicationId, status: 'PROCEED' },
+        }),
+      ]);
+      return run && aml ? true : null;
+    }, 30_000);
+    expect(
+      await prisma.complianceCase.count({ where: { applicationId } }),
+    ).toBe(0);
+    worker.trackwizz.setScenario('CONFIRMED_HIT');
+    const rerun = json(
+      await sit
+        .http()
+        .post(`/internal/v1/applications/${applicationId}/screening-runs`)
+        .set('X-Internal-Token', process.env.INTERNAL_SERVICE_TOKEN!)
+        .set('X-Reviewer-Id', 'ops-1')
+        .send({ identity_version: 1, screening_policy_version: 'screening_v1' })
+        .expect(202),
+    );
+    expect(rerun.status).toBe('QUEUED');
+    const stopped = await eventually(async () => {
+      const r = await prisma.screeningRun.findUnique({
+        where: { id: rerun.screening_run_id as string },
+      });
+      return r && r.status !== 'QUEUED' && r.status !== 'RUNNING' ? r : null;
+    }, 30_000);
+    expect(stopped).toMatchObject({
+      status: 'STOP',
+      hitsCount: 2,
+      confirmedHit: true,
+    });
+    const cases = await prisma.complianceCase.findMany({
+      where: { applicationId },
+    });
+    expect(cases).toHaveLength(1);
+    expect(cases[0]).toMatchObject({
+      kind: 'SCREENING_HIT',
+      severity: 'HIGH',
+      status: 'OPEN',
+      providerCaseId: expect.stringMatching(/^CASE/) as string,
+    });
+    worker.trackwizz.setScenario('RISK_HIGH');
+    const aml = json(
+      await sit
+        .http()
+        .post(`/internal/v1/applications/${applicationId}/aml-assessments`)
+        .set('X-Internal-Token', process.env.INTERNAL_SERVICE_TOKEN!)
+        .send({
+          identity_version: 1,
+          profile_version: 1,
+          declaration_version: 1,
+          policy_version: 'aml_v1',
+        })
+        .expect(202),
+    );
+    const high = await eventually(async () => {
+      const r = await prisma.amlAssessment.findUnique({
+        where: { id: aml.assessment_id as string },
+      });
+      return r && r.status !== 'QUEUED' && r.status !== 'RUNNING' ? r : null;
+    }, 30_000);
+    expect(high).toMatchObject({ status: 'REVIEW', riskValue: 'High' });
+    expect(
+      await prisma.complianceCase.count({
+        where: { applicationId, kind: 'AML_HIGH_RISK' },
+      }),
+    ).toBe(1);
+    const blob = JSON.stringify(
+      await prisma.analyticsOutbox.findMany({
+        where: {
+          properties: { path: ['application_id'], equals: applicationId },
+        },
+      }),
+    );
+    expect(blob).toContain('Application Processing Updated');
+    expect(blob).not.toMatch(/High|Stop|CASE|KeyActivity/);
+    worker.trackwizz.setScenario('NO_HITS');
+    worker.trackwizz.setScenario('RISK_LOW');
+  });
+
   it('14-15: bank verification runs through the worker and WireMock; repeated taps reuse the verification', async () => {
     const body = {
       account_number: '999900001234',

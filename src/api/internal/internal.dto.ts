@@ -79,3 +79,28 @@ export class FundingReceiptResponseDto {
   @ApiProperty({ example: 'MATCHED' }) match_status!: string;
   @ApiProperty({ example: 'RECONCILED' }) funding_status!: string;
 }
+
+export class ScreeningRunRequestDto {
+  @ApiProperty({ example: 1 }) @IsInt() @Min(1) identity_version!: number;
+  @ApiProperty({ example: 'screening_v1' })
+  @IsString()
+  @Length(1, 40)
+  screening_policy_version!: string;
+}
+export class ScreeningRunResponseDto {
+  @ApiProperty() screening_run_id!: string;
+  @ApiProperty({ example: 'QUEUED' }) status!: string;
+}
+export class AmlAssessmentRequestDto {
+  @ApiProperty({ example: 1 }) @IsInt() @Min(1) identity_version!: number;
+  @ApiProperty({ example: 1 }) @IsInt() @Min(1) profile_version!: number;
+  @ApiProperty({ example: 1 }) @IsInt() @Min(1) declaration_version!: number;
+  @ApiProperty({ example: 'aml_v1' })
+  @IsString()
+  @Length(1, 40)
+  policy_version!: string;
+}
+export class AmlAssessmentResponseDto {
+  @ApiProperty() assessment_id!: string;
+  @ApiProperty({ example: 'QUEUED' }) status!: string;
+}

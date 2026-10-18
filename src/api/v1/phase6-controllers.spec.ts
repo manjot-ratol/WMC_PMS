@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AccountOpeningService } from '../../application/account-opening/account-opening.service';
+import { ComplianceService } from '../../application/compliance/compliance.service';
 import { FundingService } from '../../application/funding/funding.service';
 import { ProcessingService } from '../../application/processing/processing.service';
 import { SigningService } from '../../application/signing/signing.service';
@@ -31,6 +32,7 @@ const internal = '/internal/v1/applications/app_1';
 describe('Phase 6 controllers (mocked services and guards)', () => {
   let app: INestApplication<App>;
   const signing = { create: jest.fn(), get: jest.fn() };
+  const compliance = { requestScreening: jest.fn(), requestAml: jest.fn() };
   const processing = { status: jest.fn(), respond: jest.fn() };
   const funding = {
     instructions: jest.fn(),
@@ -69,6 +71,7 @@ describe('Phase 6 controllers (mocked services and guards)', () => {
         { provide: ProcessingService, useValue: processing },
         { provide: FundingService, useValue: funding },
         { provide: AccountOpeningService, useValue: accounts },
+        { provide: ComplianceService, useValue: compliance },
         CorrelationStore,
         {
           provide: APP_FILTER,
@@ -390,6 +393,51 @@ describe('Phase 6 controllers (mocked services and guards)', () => {
         destination_reference: 'PMS-1',
         value_date: '18-10-2026',
       })
+      .expect(422);
+  });
+
+  it('internal compliance re-runs map bodies and are 202', async () => {
+    compliance.requestScreening.mockResolvedValue({
+      screeningRunId: 'sr_1',
+      status: 'QUEUED',
+    });
+    const s = await request(app.getHttpServer())
+      .post(`${internal}/screening-runs`)
+      .set('X-Reviewer-Id', 'ops-1')
+      .send({ identity_version: 1, screening_policy_version: 'screening_v1' })
+      .expect(202);
+    expect(s.body).toEqual({ screening_run_id: 'sr_1', status: 'QUEUED' });
+    expect(compliance.requestScreening).toHaveBeenCalledWith({
+      applicationId: 'app_1',
+      identityVersion: 1,
+      screeningPolicyVersion: 'screening_v1',
+      requestedBy: 'ops-1',
+    });
+    compliance.requestAml.mockResolvedValue({
+      assessmentId: 'aml_1',
+      status: 'QUEUED',
+    });
+    const a = await request(app.getHttpServer())
+      .post(`${internal}/aml-assessments`)
+      .send({
+        identity_version: 1,
+        profile_version: 2,
+        declaration_version: 1,
+        policy_version: 'aml_v1',
+      })
+      .expect(202);
+    expect(a.body).toEqual({ assessment_id: 'aml_1', status: 'QUEUED' });
+    expect(compliance.requestAml).toHaveBeenCalledWith({
+      applicationId: 'app_1',
+      identityVersion: 1,
+      profileVersion: 2,
+      declarationVersion: 1,
+      policyVersion: 'aml_v1',
+      requestedBy: 'internal',
+    });
+    await request(app.getHttpServer())
+      .post(`${internal}/screening-runs`)
+      .send({ identity_version: 0, screening_policy_version: '' })
       .expect(422);
   });
 });

@@ -5,6 +5,8 @@ import { KycRelianceRulebookProviders } from '../rulebooks.providers';
 import { EventRouter } from '../../infrastructure/queue/event-router';
 import { ALL_QUEUES, QUEUES } from '../../infrastructure/queue/queue.names';
 import { AccountOpeningProcessor } from './account-opening.processor';
+import { AmlAssessmentProcessor } from './aml-assessment.processor';
+import { ScreeningProcessor } from './screening.processor';
 import { ActivationProcessor } from './activation.processor';
 import { BankVerificationProcessor } from './bank-verification.processor';
 import {
@@ -34,6 +36,8 @@ import { KycStatusPollProcessor, POLL_JOB } from './kyc-status-poll.processor';
     SigningStatusProcessor,
     AccountOpeningProcessor,
     ActivationProcessor,
+    ScreeningProcessor,
+    AmlAssessmentProcessor,
   ],
 })
 export class JobsModule implements OnModuleInit {
@@ -73,6 +77,18 @@ export class JobsModule implements OnModuleInit {
       jobName: 'run',
     });
     this.router.register('FundingRequirementMet', {
+      queue: QUEUES.ACTIVATION,
+      jobName: 'run',
+    });
+    this.router.register('ScreeningRequested', {
+      queue: QUEUES.SCREENING,
+      jobName: 'run',
+    });
+    this.router.register('AmlAssessmentRequested', {
+      queue: QUEUES.AML,
+      jobName: 'run',
+    });
+    this.router.register('ComplianceOutcomeRecorded', {
       queue: QUEUES.ACTIVATION,
       jobName: 'run',
     });

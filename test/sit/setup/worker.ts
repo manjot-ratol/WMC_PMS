@@ -1,16 +1,28 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import { createWorkerContext } from '../../../src/app/bootstrap';
 import { loadTestEnv } from '../../support/env';
+import { createTrackWizzMock } from './trackwizz';
+import type { TrackWizzMock } from '../../../tools/trackwizz-mock/server';
 
-/** Boots the real worker (BullMQ consumers + outbox dispatcher) in-process for SIT. */
+/** Boots the real worker (BullMQ consumers + outbox dispatcher) in-process for SIT, with the TrackWizz mock beside it. */
 export async function startSitWorker(): Promise<{
   ctx: INestApplicationContext;
+  trackwizz: TrackWizzMock;
   stop: () => Promise<void>;
 }> {
   loadTestEnv({ override: true });
   process.env.ENV_FILE = '.env.test';
+  const trackwizz = createTrackWizzMock();
+  await trackwizz.start();
   const ctx = await createWorkerContext();
-  return { ctx, stop: () => ctx.close() };
+  return {
+    ctx,
+    trackwizz,
+    stop: async () => {
+      await ctx.close();
+      await trackwizz.stop();
+    },
+  };
 }
 
 /** Polls `fn` until it returns a truthy value or the timeout elapses. */

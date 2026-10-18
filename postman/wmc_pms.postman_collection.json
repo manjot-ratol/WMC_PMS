@@ -1239,6 +1239,56 @@
      "raw": "{\n  \"snapshot_id\": \"{{snapshot_id}}\",\n  \"document_pack_version\": 1\n}"
     }
    }
+  },
+  {
+   "name": "Internal \u00b7 re-run screening (Job A)",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     },
+     {
+      "key": "X-Reviewer-Id",
+      "value": "ops-1"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/screening-runs",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"identity_version\": 1,\n  \"screening_policy_version\": \"screening_v1\"\n}"
+    }
+   }
+  },
+  {
+   "name": "Internal \u00b7 re-run AML risk rating (Job B)",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     },
+     {
+      "key": "X-Reviewer-Id",
+      "value": "ops-1"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/aml-assessments",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"identity_version\": 1,\n  \"profile_version\": 1,\n  \"declaration_version\": 1,\n  \"policy_version\": \"aml_v1\"\n}"
+    }
+   }
   }
  ]
 }

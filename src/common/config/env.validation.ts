@@ -73,6 +73,7 @@ export class EnvSchema {
   @IsOptional() @IsString() TRACKWIZZ_OUR_PRIVATE_KEY_PEM = '';
   @IsOptional() @IsString() TRACKWIZZ_THEIR_PUBLIC_KEY_PEM = '';
   @Transform(toInt) @IsInt() @Min(1000) TRACKWIZZ_TIMEOUT_MS = 30000;
+  @IsOptional() @IsString() TRACKWIZZ_CRYPTO_PROFILE = '';
 
   @IsString() MFCENTRAL_BASE_URL = 'https://uatservices.mfcentral.com';
   @IsOptional() @IsString() MFCENTRAL_CLIENT_ID = '';

@@ -9,12 +9,17 @@ import {
 } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AccountOpeningService } from '../../application/account-opening/account-opening.service';
+import { ComplianceService } from '../../application/compliance/compliance.service';
 import { FundingService } from '../../application/funding/funding.service';
 import { UseInternal } from '../../common/auth/auth.decorators';
 import { ApiErrorDto } from '../shared/api-error.dto';
 import {
   AccountOpeningRunDto,
   AccountOpeningRunResponseDto,
+  AmlAssessmentRequestDto,
+  AmlAssessmentResponseDto,
+  ScreeningRunRequestDto,
+  ScreeningRunResponseDto,
   FundingReceiptDto,
   FundingReceiptResponseDto,
   UnderlyingAccountDto,
@@ -33,6 +38,7 @@ export class InternalOperationsController {
   constructor(
     private readonly accountOpening: AccountOpeningService,
     private readonly funding: FundingService,
+    private readonly compliance: ComplianceService,
   ) {}
 
   @Post('account-opening-runs')
@@ -109,5 +115,48 @@ export class InternalOperationsController {
       match_status: r.matchStatus,
       funding_status: r.fundingStatus,
     };
+  }
+
+  @Post('screening-runs')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary:
+      'Job A: queue (or re-queue) TrackWizz screening for the current identity version',
+  })
+  @ApiResponse({ status: 202, type: ScreeningRunResponseDto })
+  async screening(
+    @Param('application_id') applicationId: string,
+    @Body() body: ScreeningRunRequestDto,
+    @Headers('x-reviewer-id') reviewer?: string,
+  ): Promise<ScreeningRunResponseDto> {
+    const r = await this.compliance.requestScreening({
+      applicationId,
+      identityVersion: body.identity_version,
+      screeningPolicyVersion: body.screening_policy_version,
+      requestedBy: reviewer ?? 'internal',
+    });
+    return { screening_run_id: r.screeningRunId, status: r.status };
+  }
+
+  @Post('aml-assessments')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Job B: queue (or re-queue) the TrackWizz purpose-06 risk rating',
+  })
+  @ApiResponse({ status: 202, type: AmlAssessmentResponseDto })
+  async aml(
+    @Param('application_id') applicationId: string,
+    @Body() body: AmlAssessmentRequestDto,
+    @Headers('x-reviewer-id') reviewer?: string,
+  ): Promise<AmlAssessmentResponseDto> {
+    const r = await this.compliance.requestAml({
+      applicationId,
+      identityVersion: body.identity_version,
+      profileVersion: body.profile_version,
+      declarationVersion: body.declaration_version,
+      policyVersion: body.policy_version,
+      requestedBy: reviewer ?? 'internal',
+    });
+    return { assessment_id: r.assessmentId, status: r.status };
   }
 }
