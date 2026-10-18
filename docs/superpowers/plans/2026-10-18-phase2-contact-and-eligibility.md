@@ -51,8 +51,8 @@
 - `OnboardingApplication { id, customerId, status: 'IN_PROGRESS'|'ASSISTED'|'NOT_ELIGIBLE'|'WITHDRAWN', journeyVersion: 'pms_v3', nextScreen: Screen, version, steps: ApplicationStep[] }` with `completeStep(stepId, nextScreen, now)` (idempotent, bumps version) and `applyEligibility(decision)`.
 - `EligibilityInput { customerType, residentialStatus, intendedInvestmentInr, distributionRoute }`; `EligibilityDecision { status: 'ELIGIBLE'|'ASSISTED_REQUIRED'|'NOT_ELIGIBLE', rulesetVersion, journeyRoute?, reasons: string[], nextScreen }`; `evaluateEligibility(input, rulebook): EligibilityDecision` where NOT_ELIGIBLE (amount below minimum) wins over ASSISTED.
 
-- [ ] Write failing tests (phone normalisation table, masking, email normalisation, customer transitions, challenge expiry/attempts, otp length and digest determinism, application step idempotency and version bump, eligibility matrix incl. precedence and unknown values → ValidationError).
-- [ ] Run → FAIL. Implement. Run → PASS. Commit `feat(domain): customer, application, challenge and eligibility model`.
+- [x] Write failing tests (phone normalisation table, masking, email normalisation, customer transitions, challenge expiry/attempts, otp length and digest determinism, application step idempotency and version bump, eligibility matrix incl. precedence and unknown values → ValidationError).
+- [x] Run → FAIL. Implement. Run → PASS. Commit `feat(domain): customer, application, challenge and eligibility model`.
 
 ---
 
@@ -70,7 +70,7 @@
 - `ApplicationRepositoryPort { findById(id, tx?); findInProgressByCustomer(customerId, tx?); create(app, tx?); saveWithVersionCheck(app, tx?) }` (steps saved with the aggregate).
 - `ChallengeRepositoryPort { create(ch, tx?); findById(id, tx?); update(ch, tx?) }`; `SessionRepositoryPort { create(s, tx?); revoke(tokenHash) }`; `EligibilityRepositoryPort { append(decision, tx?) ; latest(applicationId) }`; `AnalyticsPort { track(event: { name, applicationId?, screenId, outcome?, safeErrorCategory?, identity? }, tx?) }` writing `analytics_outbox` with the allowlist only.
 
-- [ ] Write failing DB specs; migrate; implement; PASS; commit `feat(persistence): identity and onboarding tables and repositories`.
+- [x] Write failing DB specs; migrate; implement; PASS; commit `feat(persistence): identity and onboarding tables and repositories`.
 
 ---
 
@@ -81,7 +81,7 @@
 - Create: `src/infrastructure/messaging/log-sms.sender.ts` (logs masked destination and NEVER the otp; in `local`/`test` also exposes `lastSent` for SIT via an in-memory `MessageSpy`), `smtp-email.sender.ts` (nodemailer to `SMTP_HOST:SMTP_PORT`, plain text OTP mail), `messaging.module.ts`.
 - Test: `log-sms.sender.spec.ts` (asserts otp absent from log fields), `smtp-email.sender.spec.ts` (nodemailer transport mocked).
 
-- [ ] Commit `feat(messaging): sms/email sender ports with log and smtp adapters`.
+- [x] Commit `feat(messaging): sms/email sender ports with log and smtp adapters`.
 
 ---
 
@@ -93,7 +93,7 @@
 - Create: `src/common/auth/preauth.guard.ts` (Bearer → PREAUTH principal `{ kind:'PREAUTH', id: phoneFingerprint, challengeId? }`), `session.guard.ts` (Bearer → CUSTOMER principal, touches TTL), `application-ownership.guard.ts` (path `application_id` ∈ `principal.applicationIds` else 403), decorators `@UsePreAuth()`, `@UseSession()`.
 - Test: store specs (docker redis), guard specs (mocked stores).
 
-- [ ] Commit `feat(auth): pre-auth and session token stores and guards`.
+- [x] Commit `feat(auth): pre-auth and session token stores and guards`.
 
 ---
 
@@ -108,7 +108,7 @@
 - `PhoneChallengeService.create(cmd: { phone, purpose, privacyNoticeVersion, clientIp }) → { challengeId, status, expiresInSeconds, resendAfterSeconds, phoneMasked, preauthToken }`: rate-limit (phone fp, ip) → uow { find or create UNVERIFIED customer; challenge row; audit; analytics `Phone Challenge Created` } → OTP to Redis → dispatch via `SmsSenderPort` → challenge status DISPATCHED/DISPATCH_FAILED + analytics `OTP Dispatch Updated` → issue pre-auth token.
 - Response `202` body exactly `{ challenge_id, status, expires_in_seconds, resend_after_seconds, phone_masked, preauth_token }`.
 
-- [ ] Commit `feat(auth): phone challenge creation (screen 01)`.
+- [x] Commit `feat(auth): phone challenge creation (screen 01)`.
 
 ---
 
@@ -122,14 +122,14 @@
 - `verify(cmd: { challengeId, otp, principal: PREAUTH }) → { status:'VERIFIED', customerId, applicationId, nextScreen:'EMAIL_ENTRY', sessionToken }`; errors: challenge not found / fingerprint mismatch → `OtpInvalidError`; LOCKED/EXPIRED/INVALID → `OtpInvalidError`; Redis failure → `DependencyUnavailableError`.
 - Transaction: customer `verifyPhone`; application create (status IN_PROGRESS, nextScreen EMAIL_ENTRY, step PHONE_VERIFIED) or resume; challenge VERIFIED; session row; audit; outbox `ApplicationCreated`/`ApplicationResumed`; analytics `Phone Verification Completed` + `Application Created|Resumed`. Pre-auth token revoked after commit.
 
-- [ ] Commit `feat(auth): phone OTP verification, application create/resume, session issuance (screen 02)`.
+- [x] Commit `feat(auth): phone OTP verification, application create/resume, session issuance (screen 02)`.
 
 ---
 
 ### Task 7: Resend (phone) and cooldown
 
 - `resend(cmd: { challengeId, principal }) → { challengeId (new), status, expiresInSeconds, resendAfterSeconds }`; 429 `RateLimitedError(retryAfter)` inside cooldown; old challenge SUPERSEDED and Redis key deleted; abuse counters (per phone) still apply.
-- [ ] Tests incl. Review Focus 4. Commit `feat(auth): phone challenge resend with cooldown`.
+- [x] Tests incl. Review Focus 4. Commit `feat(auth): phone challenge resend with cooldown`.
 
 ---
 
@@ -139,7 +139,7 @@
 - Create: `src/application/onboarding/email-verification.service.ts`, `src/api/v1/onboarding/email-challenge.controller.ts`, DTOs.
 - Guards: `SessionGuard` + `ApplicationOwnershipGuard`.
 - Behaviour: create → validate/normalise email, rate limit per application, store proposed email on customer (unverified, encrypted), challenge bound to customer+application, OTP via `EmailSenderPort`, 202 `{ challenge_id, status, email_masked, expires_in_seconds }`; verify → OTP check (channel EMAIL, purpose EMAIL_VERIFICATION, application match), customer `verifyEmail`, step EMAIL_VERIFIED, nextScreen ELIGIBILITY, 200 `{ status:'VERIFIED', next_screen:'ELIGIBILITY' }`; resend → `{ challenge_id, status }`. Changing the email supersedes the pending challenge.
-- [ ] Tests incl. Review Focus 2. Commit `feat(onboarding): email verification (screens 03-04)`.
+- [x] Tests incl. Review Focus 2. Commit `feat(onboarding): email verification (screens 03-04)`.
 
 ---
 
@@ -149,7 +149,7 @@
 - Create: `src/application/onboarding/eligibility.service.ts`, `src/api/v1/onboarding/eligibility.controller.ts`, `application.controller.ts` (GET), DTOs with class-validator (`customer_type` enum, `residential_status` enum, `intended_investment_inr` positive integer, `distribution_route` enum).
 - `EligibilityService.evaluate(applicationId, input, principal) → { status, rulesetVersion, journeyRoute, nextScreen }`: load app (must have EMAIL_VERIFIED, else 422 ACTION_REQUIRED), evaluate rulebook, append decision (version = app.version+1), application nextScreen/status, audit, analytics `Eligibility Evaluation Completed`.
 - `GET /v1/onboarding/applications/{id}` → `{ application_id, status, next_screen, version, journey_version, steps: [{ step_id, status, completed_at }] }`.
-- [ ] Tests incl. Review Focus 5. Commit `feat(onboarding): eligibility decision and application resume read (screen 05)`.
+- [x] Tests incl. Review Focus 5. Commit `feat(onboarding): eligibility decision and application resume read (screen 05)`.
 
 ---
 
@@ -159,4 +159,4 @@
 - Create: `src/api/v1/auth/auth-api.module.ts`, `src/api/v1/onboarding/onboarding-api.module.ts`, `src/application/application.module.ts`; register in `ApiModule`. Swagger decorators on every DTO/endpoint; `@ApiBearerAuth('session')`.
 - Create: `postman/wmc_pms.postman_collection.json` (journey folder with tests that chain `preauth_token`, `challenge_id`, `session_token`, `application_id`; OTP read from Mailpit API for email and from the local log-sender spy endpoint is **not** exposed — document that local SMS OTPs are printed by the log sender at debug level only in `APP_ENV=local`).
 - Create: `test/sit/journey-01-05.sit.ts`: full flow with `SmsSenderPort` overridden by an in-memory spy; asserts each `next_screen`, idempotent replay of the challenge creation, rate limit 429 on the 6th challenge, 403 on another customer's application, 409 on a stale eligibility version, and that `analytics_outbox` rows contain no phone/email/otp.
-- [ ] `make sit` green; coverage gate green; commit `feat(api): phase 2 modules, swagger, postman and SIT journey`.
+- [x] `make sit` green; coverage gate green; commit `feat(api): phase 2 modules, swagger, postman and SIT journey`.

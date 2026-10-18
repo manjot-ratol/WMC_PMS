@@ -1,0 +1,40 @@
+{
+  "info": {
+    "name": "WMC PMS Onboarding - screens 01-05",
+    "_postman_id": "7c1f1d3e-5a6b-4b0f-9f6e-wmcpms0000002",
+    "description": "Runs the onboarding journey against the local backend (`make up` + `npm run start:api`).\n\nOTP delivery locally: the SMS sender only logs a masked destination, so read the phone OTP from the API log at debug level (`LOG_LEVEL=debug`, event `sms.sent` is masked; the code is NOT logged). For local testing use the Mailpit UI (http://localhost:8025) for email codes, and for phone codes run with `APP_ENV=local` and read the code from the MessageSpy via the SIT harness, or use the SIT suite (`make sit`) which drives the whole journey automatically.\n\nVariables chain automatically via test scripts: preauth_token, challenge_id, session_token, application_id, email_challenge_id.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "phone", "value": "9000000001" },
+    { "key": "email", "value": "customer@example.com" },
+    { "key": "otp", "value": "000000" },
+    { "key": "preauth_token", "value": "" },
+    { "key": "challenge_id", "value": "" },
+    { "key": "session_token", "value": "" },
+    { "key": "application_id", "value": "" },
+    { "key": "email_challenge_id", "value": "" }
+  ],
+  "event": [
+    { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.request.headers.upsert({ key: 'Idempotency-Key', value: pm.variables.replaceIn('{{$guid}}') });", "pm.request.headers.upsert({ key: 'X-Correlation-ID', value: pm.variables.replaceIn('{{$guid}}') });"] } }
+  ],
+  "item": [
+    { "name": "Health", "item": [
+      { "name": "GET /health", "request": { "method": "GET", "url": "{{baseUrl}}/health" } },
+      { "name": "GET /health/ready", "request": { "method": "GET", "url": "{{baseUrl}}/health/ready" } }
+    ] },
+    { "name": "01 Phone challenge", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('202', () => pm.response.to.have.status(202));", "const b = pm.response.json(); pm.collectionVariables.set('preauth_token', b.preauth_token); pm.collectionVariables.set('challenge_id', b.challenge_id);"] } }],
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/v1/auth/phone/challenges", "body": { "mode": "raw", "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"purpose\": \"PMS_ONBOARDING\",\n  \"privacy_notice_version\": \"privacy_v1\"\n}" } } },
+    { "name": "02 Verify phone OTP", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));", "const b = pm.response.json(); pm.collectionVariables.set('session_token', b.session_token); pm.collectionVariables.set('application_id', b.application_id);"] } }],
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{preauth_token}}" }], "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/verify", "body": { "mode": "raw", "raw": "{\n  \"otp\": \"{{otp}}\"\n}" } } },
+    { "name": "02 Resend phone OTP", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 200) { pm.collectionVariables.set('challenge_id', pm.response.json().challenge_id); }"] } }],
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{preauth_token}}" }], "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/resend", "body": { "mode": "raw", "raw": "{}" } } },
+    { "name": "Resume: GET application", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}" } },
+    { "name": "03 Email challenge", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('202', () => pm.response.to.have.status(202));", "pm.collectionVariables.set('email_challenge_id', pm.response.json().challenge_id);"] } }],
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges", "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" } } },
+    { "name": "04 Verify email OTP (code from Mailpit http://localhost:8025)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/verify", "body": { "mode": "raw", "raw": "{\n  \"otp\": \"{{otp}}\"\n}" } } },
+    { "name": "04 Resend email OTP", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/resend", "body": { "mode": "raw", "raw": "{}" } } },
+    { "name": "05 Eligibility", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{session_token}}" }], "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/eligibility", "body": { "mode": "raw", "raw": "{\n  \"customer_type\": \"INDIVIDUAL\",\n  \"residential_status\": \"RESIDENT\",\n  \"intended_investment_inr\": 5000000,\n  \"distribution_route\": \"DIRECT\"\n}" } } }
+  ]
+}

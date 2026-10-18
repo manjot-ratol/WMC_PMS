@@ -1,5 +1,6 @@
 /* Jest globalSetup for SIT: waits for docker infra, migrates the SIT database, resets WireMock. */
 import { execSync } from 'node:child_process';
+import Redis from 'ioredis';
 import { loadTestEnv } from '../../support/env';
 import { wiremock } from './wiremock';
 
@@ -35,4 +36,8 @@ export default async function globalSetup(): Promise<void> {
     10,
   );
   await wiremock.reset();
+  // The SIT redis db (index 15) is dedicated to tests: clear rate-limit counters and leftovers from earlier runs.
+  const redis = new Redis(process.env.REDIS_URL!);
+  await redis.flushdb();
+  await redis.quit();
 }

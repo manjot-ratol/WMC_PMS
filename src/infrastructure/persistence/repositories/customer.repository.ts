@@ -62,10 +62,12 @@ export class CustomerRepository implements CustomerRepositoryPort {
 
   private toColumns(c: Customer) {
     return {
-      phoneCiphertext: this.cipher.encryptToBuffer(c.phone),
+      phoneCiphertext: bytes(this.cipher.encryptToBuffer(c.phone)),
       phoneFingerprint: this.fingerprint.of(c.phone, 'phone'),
       phoneVerifiedAt: c.phoneVerifiedAt ?? null,
-      emailCiphertext: c.email ? this.cipher.encryptToBuffer(c.email) : null,
+      emailCiphertext: c.email
+        ? bytes(this.cipher.encryptToBuffer(c.email))
+        : null,
       emailFingerprint: c.email ? this.fingerprint.of(c.email, 'email') : null,
       emailVerifiedAt: c.emailVerifiedAt ?? null,
       state: c.state,
@@ -91,4 +93,9 @@ export class CustomerRepository implements CustomerRepositoryPort {
       createdAt: r.createdAt,
     };
   }
+}
+
+/** Prisma's Bytes columns are typed as Uint8Array over a plain ArrayBuffer; copy out of the Buffer pool. */
+function bytes(b: Buffer): Uint8Array<ArrayBuffer> {
+  return new Uint8Array(b);
 }

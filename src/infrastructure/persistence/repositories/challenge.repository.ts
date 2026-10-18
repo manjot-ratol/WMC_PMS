@@ -49,6 +49,22 @@ export class ChallengeRepository implements ChallengeRepositoryPort {
     return row ? toDomain(row) : null;
   }
 
+  async findPendingByApplication(
+    applicationId: string,
+    channel: ChallengeChannel,
+    tx?: TransactionContext,
+  ): Promise<Challenge[]> {
+    const rows = await clientOf(this.prisma, tx).authChallenge.findMany({
+      where: {
+        applicationId,
+        channel,
+        status: { in: ['DISPATCH_PENDING', 'DISPATCHED', 'DISPATCH_FAILED'] },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map(toDomain);
+  }
+
   async update(c: Challenge, tx?: TransactionContext): Promise<void> {
     await clientOf(this.prisma, tx).authChallenge.update({
       where: { id: c.id },

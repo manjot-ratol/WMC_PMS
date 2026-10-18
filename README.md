@@ -26,6 +26,23 @@ make sit          # system integration tests: real app, real postgres/redis, Wir
 npm run lint
 ```
 
+## API surface so far (Phase 2)
+
+| Screen | Endpoint | Auth |
+| --- | --- | --- |
+| 01 | `POST /v1/auth/phone/challenges` | none (rate limited per phone and IP) |
+| 02 | `POST /v1/auth/phone/challenges/{id}/verify`, `…/resend` | pre-auth bearer from screen 01 |
+| resume | `GET /v1/onboarding/applications/{id}` | session bearer |
+| 03 | `POST /v1/onboarding/applications/{id}/email/challenges` | session bearer |
+| 04 | `…/email/challenges/{cid}/verify`, `…/resend` | session bearer |
+| 05 | `PUT /v1/onboarding/applications/{id}/eligibility` | session bearer |
+
+All mutating routes require an `Idempotency-Key` header. Swagger documents request and response shapes at `/docs`.
+`postman/wmc_pms.postman_collection.json` chains the journey; email OTPs are visible in Mailpit at
+http://localhost:8025, phone OTPs are never logged (the SIT suite reads them through an in-memory spy).
+
+Eligibility rules live in `config/rulebooks/eligibility.v1.json` (placeholder content pending Compliance).
+
 ## Partner credentials
 
 Secrets never go in the repo. Digio sandbox credentials come from your Digio account manager; TrackWizz and MF
