@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -7,6 +7,7 @@ import { json, urlencoded } from 'express';
 import { AppLogger } from '../common/logging/logger.service';
 import { setupSwagger } from '../common/swagger/swagger.setup';
 import { ApiModule } from './api.module';
+import { WorkerModule } from './worker.module';
 import { APP_VERSION } from './version';
 
 export const BODY_LIMIT = '1mb';
@@ -33,9 +34,27 @@ export async function createApiApp(
   app.useLogger(app.get(AppLogger));
   app.set('trust proxy', 1);
   app.use(helmet());
-  app.use(json({ limit: BODY_LIMIT }));
+  app.use(
+    json({
+      limit: BODY_LIMIT,
+      verify: (req, _res, buf) => {
+        (req as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+      },
+    }),
+  );
   app.use(urlencoded({ extended: false, limit: BODY_LIMIT }));
   app.enableShutdownHooks();
   setupSwagger(app, APP_VERSION);
   return app;
+}
+
+/** Builds the worker (queue consumers) as an application context; used by worker.ts and by SIT. */
+export async function createWorkerContext(): Promise<INestApplicationContext> {
+  const ctx = await NestFactory.createApplicationContext(WorkerModule, {
+    bufferLogs: true,
+    abortOnError: false,
+  });
+  ctx.useLogger(ctx.get(AppLogger));
+  await ctx.init();
+  return ctx;
 }

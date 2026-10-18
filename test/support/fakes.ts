@@ -258,6 +258,9 @@ export class FakeOutbox implements OutboxPort {
   markFailed(): Promise<void> {
     return Promise.resolve();
   }
+  markDead(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 export class FakeAnalytics implements AnalyticsPort {
   readonly events: AnalyticsEvent[] = [];
@@ -333,3 +336,270 @@ export const silentLogger = {
     return this;
   },
 };
+
+/* ---------- Phase 3 fakes ---------- */
+import type { IdentityRepositoryPort } from '../../src/application/ports/identity.repository.port';
+import type {
+  KycRecordRepositoryPort,
+  KycSessionRepositoryPort,
+} from '../../src/application/ports/kyc.repository.port';
+import type { DocumentRepositoryPort } from '../../src/application/ports/document.repository.port';
+import type {
+  TaskRecord,
+  TaskRepositoryPort,
+  VerificationRepositoryPort,
+} from '../../src/application/ports/verification.repository.port';
+import type {
+  ObjectStoragePort,
+  StoredObjectInfo,
+} from '../../src/application/ports/object-storage.port';
+import type {
+  JobPublisherPort,
+  PublishOptions,
+} from '../../src/application/ports/job-publisher.port';
+import type {
+  InboxPort,
+  InboxRow,
+} from '../../src/application/ports/inbox.port';
+import type { IdentityVersion } from '../../src/domain/kyc/identity-version';
+import type { KycRecord } from '../../src/domain/kyc/kyc-record';
+import type { KycSession } from '../../src/domain/kyc/kyc-session';
+import type {
+  Document,
+  DocumentUpload,
+} from '../../src/domain/documents/document';
+import type { AdditionalVerification } from '../../src/domain/ipv/additional-verification';
+
+export class FakeIdentities implements IdentityRepositoryPort {
+  readonly rows: IdentityVersion[] = [];
+  constructor(private readonly fpOf: (pan: string) => string) {}
+  append(i: IdentityVersion): Promise<void> {
+    this.rows.push(i);
+    return Promise.resolve();
+  }
+  latest(applicationId: string): Promise<IdentityVersion | null> {
+    return Promise.resolve(
+      [...this.rows].reverse().find((r) => r.applicationId === applicationId) ??
+        null,
+    );
+  }
+  otherApplicationsWithPan(fp: string, except: string): Promise<string[]> {
+    return Promise.resolve([
+      ...new Set(
+        this.rows
+          .filter((r) => this.fpOf(r.pan) === fp && r.applicationId !== except)
+          .map((r) => r.applicationId),
+      ),
+    ]);
+  }
+}
+export class FakeKycRecords implements KycRecordRepositoryPort {
+  readonly rows = new Map<string, KycRecord>();
+  create(r: KycRecord): Promise<void> {
+    this.rows.set(r.id, r);
+    return Promise.resolve();
+  }
+  findById(id: string): Promise<KycRecord | null> {
+    return Promise.resolve(this.rows.get(id) ?? null);
+  }
+  latestForApplication(applicationId: string): Promise<KycRecord | null> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((r) => r.applicationId === applicationId)
+        .sort((a, b) => b.identityVersion - a.identityVersion)[0] ?? null,
+    );
+  }
+  saveWithVersionCheck(r: KycRecord, expected: number): Promise<void> {
+    const cur = this.rows.get(r.id);
+    if (!cur || cur.version !== expected)
+      return Promise.reject(new StaleVersionError());
+    this.rows.set(r.id, r);
+    return Promise.resolve();
+  }
+}
+export class FakeKycSessions implements KycSessionRepositoryPort {
+  readonly rows = new Map<string, KycSession>();
+  create(s: KycSession): Promise<void> {
+    this.rows.set(s.id, s);
+    return Promise.resolve();
+  }
+  findById(id: string): Promise<KycSession | null> {
+    return Promise.resolve(this.rows.get(id) ?? null);
+  }
+  findByProviderRequestId(pid: string): Promise<KycSession | null> {
+    return Promise.resolve(
+      [...this.rows.values()].find((s) => s.providerRequestId === pid) ?? null,
+    );
+  }
+  latestForApplication(applicationId: string): Promise<KycSession | null> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter((s) => s.applicationId === applicationId)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ??
+        null,
+    );
+  }
+  update(s: KycSession): Promise<void> {
+    this.rows.set(s.id, s);
+    return Promise.resolve();
+  }
+}
+export class FakeDocuments implements DocumentRepositoryPort {
+  readonly uploads = new Map<string, DocumentUpload>();
+  readonly docs = new Map<string, Document>();
+  createUpload(u: DocumentUpload): Promise<void> {
+    this.uploads.set(u.id, u);
+    return Promise.resolve();
+  }
+  findUpload(id: string): Promise<DocumentUpload | null> {
+    return Promise.resolve(this.uploads.get(id) ?? null);
+  }
+  updateUpload(u: DocumentUpload): Promise<void> {
+    this.uploads.set(u.id, u);
+    return Promise.resolve();
+  }
+  createDocument(d: Document): Promise<void> {
+    this.docs.set(d.id, d);
+    return Promise.resolve();
+  }
+  findDocument(id: string): Promise<Document | null> {
+    return Promise.resolve(this.docs.get(id) ?? null);
+  }
+  updateDocument(d: Document): Promise<void> {
+    this.docs.set(d.id, d);
+    return Promise.resolve();
+  }
+  latestVerified(
+    applicationId: string,
+    requirementId: string,
+  ): Promise<Document | null> {
+    return Promise.resolve(
+      [...this.docs.values()]
+        .reverse()
+        .find(
+          (d) =>
+            d.applicationId === applicationId &&
+            d.requirementId === requirementId &&
+            d.status === 'VERIFIED',
+        ) ?? null,
+    );
+  }
+}
+export class FakeVerifications implements VerificationRepositoryPort {
+  readonly rows = new Map<string, AdditionalVerification>();
+  create(v: AdditionalVerification): Promise<void> {
+    this.rows.set(v.id, v);
+    return Promise.resolve();
+  }
+  findById(id: string): Promise<AdditionalVerification | null> {
+    return Promise.resolve(this.rows.get(id) ?? null);
+  }
+  latestForApplication(
+    applicationId: string,
+  ): Promise<AdditionalVerification | null> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .reverse()
+        .find((v) => v.applicationId === applicationId) ?? null,
+    );
+  }
+  update(v: AdditionalVerification): Promise<void> {
+    this.rows.set(v.id, v);
+    return Promise.resolve();
+  }
+  countByType(
+    applicationId: string,
+    type: AdditionalVerification['type'],
+  ): Promise<number> {
+    return Promise.resolve(
+      [...this.rows.values()].filter(
+        (v) => v.applicationId === applicationId && v.type === type,
+      ).length,
+    );
+  }
+}
+export class FakeTasks implements TaskRepositoryPort {
+  readonly rows: TaskRecord[] = [];
+  create(t: TaskRecord): Promise<void> {
+    this.rows.push(t);
+    return Promise.resolve();
+  }
+  listOpen(applicationId: string): Promise<TaskRecord[]> {
+    return Promise.resolve(
+      this.rows.filter(
+        (t) => t.applicationId === applicationId && t.status !== 'RESOLVED',
+      ),
+    );
+  }
+}
+export class FakeStorage implements ObjectStoragePort {
+  readonly objects = new Map<string, { body: Buffer; contentType: string }>();
+  presignPut(key: string, contentType: string): Promise<string> {
+    return Promise.resolve(
+      `https://storage.test/${key}?ct=${encodeURIComponent(contentType)}`,
+    );
+  }
+  head(key: string): Promise<StoredObjectInfo | null> {
+    const o = this.objects.get(key);
+    return Promise.resolve(
+      o ? { sizeBytes: o.body.length, contentType: o.contentType } : null,
+    );
+  }
+  get(key: string): Promise<Buffer> {
+    return Promise.resolve(this.objects.get(key)?.body ?? Buffer.alloc(0));
+  }
+  put(key: string, body: Buffer | string, contentType: string): Promise<void> {
+    this.objects.set(key, {
+      body: Buffer.isBuffer(body) ? body : Buffer.from(body),
+      contentType,
+    });
+    return Promise.resolve();
+  }
+}
+export class FakeJobs implements JobPublisherPort {
+  readonly published: {
+    queue: string;
+    name: string;
+    payload: unknown;
+    opts?: PublishOptions;
+  }[] = [];
+  publish<T>(
+    queue: string,
+    name: string,
+    payload: T,
+    opts?: PublishOptions,
+  ): Promise<void> {
+    this.published.push({ queue, name, payload, opts });
+    return Promise.resolve();
+  }
+}
+export class FakeInbox implements InboxPort {
+  readonly rows = new Map<string, InboxRow>();
+  private n = 0;
+  insertIfNew(
+    provider: string,
+    eventKey: string,
+    payload: unknown,
+  ): Promise<{ inserted: boolean; id: string }> {
+    const existing = [...this.rows.values()].find(
+      (r) => r.provider === provider && r.eventKey === eventKey,
+    );
+    if (existing) return Promise.resolve({ inserted: false, id: existing.id });
+    const id = `inbox_${++this.n}`;
+    this.rows.set(id, { id, provider, eventKey, payload, status: 'RECEIVED' });
+    return Promise.resolve({ inserted: true, id });
+  }
+  get(id: string): Promise<InboxRow | null> {
+    return Promise.resolve(this.rows.get(id) ?? null);
+  }
+  markProcessed(id: string): Promise<void> {
+    const r = this.rows.get(id);
+    if (r) r.status = 'PROCESSED';
+    return Promise.resolve();
+  }
+  markFailed(id: string): Promise<void> {
+    const r = this.rows.get(id);
+    if (r) r.status = 'FAILED';
+    return Promise.resolve();
+  }
+}

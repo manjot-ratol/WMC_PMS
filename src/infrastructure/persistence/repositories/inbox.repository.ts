@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { InboxPort } from '../../../application/ports/inbox.port';
+import type {
+  InboxPort,
+  InboxRow,
+} from '../../../application/ports/inbox.port';
 import { CorrelationStore } from '../../../common/correlation/correlation.store';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
@@ -40,6 +43,21 @@ export class InboxRepository implements InboxPort {
       }
       throw err;
     }
+  }
+
+  async get(id: string): Promise<InboxRow | null> {
+    const row = await this.prisma.integrationInbox.findUnique({
+      where: { id },
+    });
+    return row
+      ? {
+          id: row.id,
+          provider: row.provider,
+          eventKey: row.eventKey,
+          payload: row.payload,
+          status: row.status,
+        }
+      : null;
   }
 
   async markProcessed(id: string): Promise<void> {

@@ -59,3 +59,12 @@
 - `AdditionalVerificationService.request` (exemption, selfie liveness/face-match job, assisted task); `IpvProcessor`; `DigioWebhookController` + `DigioWebhookProcessor` (inbox dedupe, status re-fetch).
 
 ### Task 9: Controllers, Swagger, Postman, SIT journey 06–11 with WireMock stubs for KRA, DigiStudio, face APIs; coverage gate; docs.
+
+
+## Completion notes (2026-10-18)
+
+All nine tasks are built and verified: 338 unit tests, 24 SIT tests (screens 01–11 end to end with the in-process
+worker and WireMock partners), coverage 98% lines / 86% branches, lint and build clean. Deviations from the plan:
+the IPV job has its own queue (`ipv-verification`) because one BullMQ processor serves one queue; unroutable outbox
+events are dead-lettered instead of retried; the DigiStudio session resume uses the documented
+`POST /user/auth/generate_token` to issue a fresh SDK token.

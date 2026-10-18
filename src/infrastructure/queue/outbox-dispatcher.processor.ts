@@ -33,7 +33,7 @@ export class OutboxDispatcherProcessor extends BaseProcessor<OutboxTick> {
     @Inject(OUTBOX)
     private readonly outbox: Pick<
       OutboxPort,
-      'claimBatch' | 'markDispatched' | 'markFailed'
+      'claimBatch' | 'markDispatched' | 'markFailed' | 'markDead'
     >,
     @Inject(JOB_PUBLISHER) private readonly publisher: JobPublisherPort,
     private readonly router: EventRouter,
@@ -64,11 +64,9 @@ export class OutboxDispatcherProcessor extends BaseProcessor<OutboxTick> {
   private async dispatch(row: OutboxRow): Promise<boolean> {
     const target = this.router.route(row.eventType);
     if (!target) {
-      await this.outbox.markFailed(
-        row.id,
-        `No route for event type ${row.eventType}`,
-      );
-      this.logger.warn('outbox.unrouted', {
+      // No consumer registered for this event type: dead-letter it so it never blocks the queue.
+      await this.outbox.markDead(row.id, `no route for ${row.eventType}`);
+      this.logger.info('outbox.unrouted', {
         eventType: row.eventType,
         outboxId: row.id,
       });

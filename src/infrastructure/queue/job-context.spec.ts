@@ -46,6 +46,17 @@ describe('queue job context', () => {
     );
   });
 
+  it('BullJobPublisher replaces colons in custom job ids', async () => {
+    const add = jest.fn().mockResolvedValue(undefined);
+    const publisher = new BullJobPublisher(store, {
+      get: () => ({ add }),
+    } as never);
+    await publisher.publish('q', 'n', {}, { jobId: 'a:b:c' });
+    expect(
+      (add.mock.calls[0] as [string, unknown, { jobId: string }])[2].jobId,
+    ).toBe('a-b-c');
+  });
+
   it('BullJobPublisher wraps payload with the current correlation id and passes jobId', async () => {
     const add = jest.fn().mockResolvedValue(undefined);
     const queues = { get: jest.fn().mockReturnValue({ add }) };

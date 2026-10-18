@@ -56,6 +56,8 @@ export class EnvSchema {
   @IsOptional() @IsString() DIGIO_CLIENT_SECRET = '';
   @Transform(toInt) @IsInt() @Min(1000) DIGIO_TIMEOUT_MS = 30000;
   @IsOptional() @IsString() DIGIO_WEBHOOK_SECRET = '';
+  @IsString() DIGIO_KYC_TEMPLATE_NAME = 'PMS_KYC_V1';
+  @Transform(toInt) @IsInt() @Min(60) UPLOAD_URL_TTL_SECONDS = 300;
 
   @IsOptional() @IsString() TRACKWIZZ_BASE_URL = '';
   @IsOptional() @IsString() TRACKWIZZ_API_TOKEN = '';

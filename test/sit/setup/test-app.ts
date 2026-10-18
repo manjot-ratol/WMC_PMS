@@ -14,12 +14,14 @@ export interface SitApp {
   http: () => ReturnType<typeof request>;
   /** JSON log lines captured from the app logger. */
   logs: Record<string, unknown>[];
+  /** Error-level log lines (pino level >= 50), handy when a request unexpectedly returns 500. */
+  errorLogs: () => Record<string, unknown>[];
   stop: () => Promise<void>;
 }
 
 /** Boots the real API (same bootstrap as production) against docker infra, capturing logs. */
 export async function startSitApp(): Promise<SitApp> {
-  loadTestEnv();
+  loadTestEnv({ override: true });
   process.env.ENV_FILE = '.env.test';
   process.env.LOG_LEVEL = 'info';
   const logs: Record<string, unknown>[] = [];
@@ -40,6 +42,8 @@ export async function startSitApp(): Promise<SitApp> {
     app,
     http: () => request(app.getHttpServer()),
     logs,
+    errorLogs: () =>
+      logs.filter((l) => typeof l.level === 'number' && l.level >= 50),
     stop: () => app.close(),
   };
 }

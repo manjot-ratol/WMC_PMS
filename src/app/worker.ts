@@ -1,15 +1,10 @@
-import { NestFactory } from '@nestjs/core';
 import { AppLogger } from '../common/logging/logger.service';
-import { WorkerModule } from './worker.module';
+import { createWorkerContext } from './bootstrap';
 
 async function main(): Promise<void> {
-  const app = await NestFactory.createApplicationContext(WorkerModule, {
-    bufferLogs: true,
-  });
-  app.useLogger(app.get(AppLogger));
-  app.enableShutdownHooks();
-  await app.init();
-  app.get(AppLogger).info('worker.started');
+  const ctx = await createWorkerContext();
+  ctx.enableShutdownHooks();
+  ctx.get(AppLogger).info('worker.started');
 }
 
 void main();

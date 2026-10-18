@@ -12,6 +12,7 @@ export const partnersConfig = registerAs('partners', () => {
       clientSecret: e.DIGIO_CLIENT_SECRET,
       timeoutMs: e.DIGIO_TIMEOUT_MS,
       webhookSecret: e.DIGIO_WEBHOOK_SECRET,
+      kycTemplateName: e.DIGIO_KYC_TEMPLATE_NAME,
     },
     trackwizz: {
       baseUrl: trimUrl(e.TRACKWIZZ_BASE_URL),

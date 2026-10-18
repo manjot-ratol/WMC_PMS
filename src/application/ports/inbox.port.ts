@@ -1,4 +1,13 @@
+export interface InboxRow {
+  id: string;
+  provider: string;
+  eventKey: string;
+  payload: unknown;
+  status: 'RECEIVED' | 'PROCESSED' | 'FAILED';
+}
+
 export interface InboxPort {
+  get(id: string): Promise<InboxRow | null>;
   insertIfNew(
     provider: string,
     eventKey: string,

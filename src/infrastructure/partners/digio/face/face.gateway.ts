@@ -43,7 +43,11 @@ export class DigioFaceGateway
     uniqueRequestId: string,
   ): Promise<LivenessResult> {
     const form = new FormData();
-    form.append('image', new Blob([image], { type: contentType }), 'image');
+    form.append(
+      'image',
+      new Blob([new Uint8Array(image)], { type: contentType }),
+      'image',
+    );
     form.append('unique_request_id', uniqueRequestId);
     const res = await this.post<ValidationCheckResponse>(
       'face.liveness',
@@ -68,8 +72,16 @@ export class DigioFaceGateway
     uniqueRequestId: string,
   ): Promise<FaceMatchResult> {
     const form = new FormData();
-    form.append('file1', new Blob([a], { type: contentType }), 'file1');
-    form.append('file2', new Blob([b], { type: contentType }), 'file2');
+    form.append(
+      'file1',
+      new Blob([new Uint8Array(a)], { type: contentType }),
+      'file1',
+    );
+    form.append(
+      'file2',
+      new Blob([new Uint8Array(b)], { type: contentType }),
+      'file2',
+    );
     form.append('minimum_match', String(minimumMatch));
     form.append('unique_request_id', uniqueRequestId);
     const res = await this.post<FaceMatchResponse>(

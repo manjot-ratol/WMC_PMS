@@ -37,11 +37,23 @@ npm run lint
 | 04 | `…/email/challenges/{cid}/verify`, `…/resend` | session bearer |
 | 05 | `PUT /v1/onboarding/applications/{id}/eligibility` | session bearer |
 
+| 06 | `POST …/identity-verifications` (202, starts the KRA lookup job) | session bearer |
+| 07 | `GET …/kyc` (read-only status, route and next screen) | session bearer |
+| 08 | `PUT …/kyc/confirmation` (409 on stale `kyc_record_version`) | session bearer |
+| 09 | `POST …/kyc/sessions` (DigiStudio request + SDK token) | session bearer |
+| 10 | `POST …/document-uploads` (presigned PUT), `POST …/documents` (202, verified by the worker) | session bearer |
+| 11 | `POST …/kyc/additional-verifications` (selfie liveness/face match, exemption, or assisted) | session bearer |
+| webhook | `POST /v1/integrations/digio/webhooks` | `X-Digio-Checksum` HMAC |
+
 All mutating routes require an `Idempotency-Key` header. Swagger documents request and response shapes at `/docs`.
 `postman/wmc_pms.postman_collection.json` chains the journey; email OTPs are visible in Mailpit at
 http://localhost:8025, phone OTPs are never logged (the SIT suite reads them through an in-memory spy).
 
-Eligibility rules live in `config/rulebooks/eligibility.v1.json` (placeholder content pending Compliance).
+Rulebooks live in `config/rulebooks/` (eligibility, KYC reliance, document requirements, IPV thresholds); all are
+placeholder content pending Compliance. Digio API references used for the connectors are under `docs/partners/digio/`.
+
+The worker (`npm run start:worker`) must be running for screens 06–11: KRA lookup, DigiStudio status polling,
+document verification, IPV evaluation and webhook processing all run as queue jobs fed by the transactional outbox.
 
 ## Partner credentials
 

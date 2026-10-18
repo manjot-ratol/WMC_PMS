@@ -21,6 +21,7 @@ export const DIGISTUDIO_PATHS = {
   status: (id: string) => `/client/kyc/v2/${encodeURIComponent(id)}/response`,
   media: (fileId: string) =>
     `/client/kyc/v2/media/${encodeURIComponent(fileId)}`,
+  generateToken: '/user/auth/generate_token',
 } as const;
 
 /** Digio DigiStudio workflow requests. Docs: documentation.digio.in/digistudio/integration */
@@ -60,6 +61,22 @@ export class DigiStudioGateway
       { query: { detail_response: true }, referenceId: providerRequestId },
     );
     return fromStatusResponse(res.data, providerRequestId);
+  }
+
+  async regenerateAccessToken(
+    providerRequestId: string,
+  ): Promise<{ id: string; validTill?: string }> {
+    const res = await this.post<{ id?: string; valid_till?: string }>(
+      'digistudio.regenerateToken',
+      DIGISTUDIO_PATHS.generateToken,
+      { entityId: providerRequestId },
+      { referenceId: providerRequestId },
+    );
+    if (!res.data?.id)
+      throw new PartnerRejectedError('digio', 'INVALID_RESPONSE', undefined, {
+        details: { operation: 'digistudio.regenerateToken' },
+      });
+    return { id: res.data.id, validTill: res.data.valid_till };
   }
 
   async downloadMedia(

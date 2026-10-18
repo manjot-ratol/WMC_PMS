@@ -148,6 +148,20 @@ describe('DigiStudioGateway', () => {
     });
   });
 
+  it('regenerates an SDK token for an existing request and rejects a response without an id', async () => {
+    nock(BASE)
+      .post(DIGISTUDIO_PATHS.generateToken, { entityId: 'KID1' })
+      .reply(200, { id: 'GWT9', valid_till: '2026-10-19 08:51:19' });
+    await expect(gateway.regenerateAccessToken('KID1')).resolves.toEqual({
+      id: 'GWT9',
+      validTill: '2026-10-19 08:51:19',
+    });
+    nock(BASE).post(DIGISTUDIO_PATHS.generateToken).reply(200, {});
+    await expect(gateway.regenerateAccessToken('KID1')).rejects.toBeInstanceOf(
+      PartnerRejectedError,
+    );
+  });
+
   it('downloads media as bytes and maps failures', async () => {
     nock(BASE)
       .get(DIGISTUDIO_PATHS.media('F1'))

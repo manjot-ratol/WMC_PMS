@@ -7,5 +7,6 @@ export const storageConfig = registerAs('storage', () => ({
   secretKey: env().STORAGE_SECRET_KEY,
   bucket: env().STORAGE_BUCKET,
   region: env().STORAGE_REGION,
+  uploadUrlTtlSeconds: env().UPLOAD_URL_TTL_SECONDS,
 }));
 export type StorageConfig = ReturnType<typeof storageConfig>;

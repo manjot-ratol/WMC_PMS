@@ -22,8 +22,14 @@ export function toTemplateRequest(
 
 /** Strips the access token and action OTPs from what is retained as evidence. */
 export function redactForEvidence(r: KycResponse): KycResponse {
-  const { access_token: _token, ...rest } = r;
-  return { ...rest, actions: rest.actions?.map(({ otp: _otp, ...a }) => a) };
+  const copy: KycResponse = { ...r };
+  delete copy.access_token;
+  copy.actions = r.actions?.map((a) => {
+    const action = { ...a };
+    delete action.otp;
+    return action;
+  });
+  return copy;
 }
 
 export function fromCreateResponse(r: KycResponse): KycRequestCreated {

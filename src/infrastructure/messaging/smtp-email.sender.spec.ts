@@ -36,6 +36,20 @@ describe('SmtpEmailSender', () => {
     expect(spy.lastFor('customer@example.com')?.otp).toBe('654321');
   });
 
+  it('tolerates a transport response without a message id', async () => {
+    const sender = new SmtpEmailSender(
+      logger as never,
+      { sendMail: jest.fn().mockResolvedValue({}) },
+      cfg,
+    );
+    await expect(
+      sender.send(normaliseEmail('a@example.com'), {
+        template: 'OTP',
+        vars: { otp: '1', expiresInMinutes: 5 },
+      }),
+    ).resolves.toEqual({ accepted: true, providerRef: undefined });
+  });
+
   it('reports not accepted when the transport fails', async () => {
     const sender = new SmtpEmailSender(
       logger as never,

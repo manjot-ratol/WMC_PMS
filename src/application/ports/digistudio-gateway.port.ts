@@ -37,5 +37,9 @@ export interface DigiStudioGatewayPort {
   createRequest(cmd: CreateKycRequestCommand): Promise<KycRequestCreated>;
   getStatus(providerRequestId: string): Promise<KycRequestStatus>;
   downloadMedia(fileId: string): Promise<{ data: Buffer; contentType: string }>;
+  /** New SDK access token for an existing request (POST /user/auth/generate_token). */
+  regenerateAccessToken(
+    providerRequestId: string,
+  ): Promise<{ id: string; validTill?: string }>;
 }
 export const DIGISTUDIO_GATEWAY = Symbol('DIGISTUDIO_GATEWAY');

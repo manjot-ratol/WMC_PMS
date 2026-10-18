@@ -32,6 +32,7 @@ import { ApplicationRepository } from './application.repository';
 import { ChallengeRepository } from './challenge.repository';
 import { CustomerRepository } from './customer.repository';
 import { EligibilityRepository } from './eligibility.repository';
+import { InboxRepository } from './inbox.repository';
 import { SessionRepository } from './session.repository';
 
 describeWithDb('Phase 2 repositories (docker postgres)', () => {
@@ -182,6 +183,56 @@ describeWithDb('Phase 2 repositories (docker postgres)', () => {
     );
     await applications.saveWithVersionCheck(a2, a1.version);
     expect(await applications.findInProgressByCustomer(custId)).toBeNull();
+  });
+
+  it('analytics without identity, inbox get, and assisted eligibility rows', async () => {
+    const inboxRepo = new InboxRepository(prisma, store);
+    await store.run({ correlationId: `${ns}-b`, requestId: 'r' }, () =>
+      analytics.track({
+        name: 'OTP Dispatch Updated',
+        screenId: '01',
+        outcome: 'accepted',
+      }),
+    );
+    const row = await prisma.analyticsOutbox.findFirstOrThrow({
+      where: { correlationId: `${ns}-b` },
+    });
+    expect(row.identity).toBeNull();
+    const ins = await inboxRepo.insertIfNew('sit', `${ns}-get`, { a: 1 });
+    expect(await inboxRepo.get(ins.id)).toMatchObject({
+      provider: 'sit',
+      eventKey: `${ns}-get`,
+      status: 'RECEIVED',
+    });
+    expect(
+      await inboxRepo.get('00000000-0000-0000-0000-000000000000'),
+    ).toBeNull();
+    const appId = `app_${ns}_assisted`;
+    const input = {
+      customerType: 'INDIVIDUAL',
+      residentialStatus: 'NRI',
+      intendedInvestmentInr: 5_000_000,
+      distributionRoute: 'DIRECT',
+    } as const;
+    await eligibility.append({
+      id: `elg_${ns}_a`,
+      applicationId: appId,
+      version: 1,
+      input,
+      status: 'ASSISTED_REQUIRED',
+      rulesetVersion: 'eligibility_v1',
+      reasons: ['residential_status:NRI'],
+      nextScreen: 'ASSISTED_ONBOARDING',
+      decidedAt: now,
+    });
+    expect(await eligibility.latest(appId)).toMatchObject({
+      status: 'ASSISTED_REQUIRED',
+      nextScreen: 'ASSISTED_ONBOARDING',
+      journeyRoute: undefined,
+    });
+    await prisma.integrationInbox.deleteMany({
+      where: { eventKey: `${ns}-get` },
+    });
   });
 
   it('challenge and session round-trip; eligibility append/latest; analytics allowlist', async () => {

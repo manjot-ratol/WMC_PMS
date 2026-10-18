@@ -2,6 +2,7 @@ export const QUEUES = {
   OUTBOX: 'outbox-dispatch',
   ANALYTICS: 'analytics-dispatch',
   IDENTITY: 'identity-verification',
+  IPV: 'ipv-verification',
   KYC_STATUS: 'kyc-status',
   DOCUMENTS: 'document-processing',
   BANK: 'bank-verification',

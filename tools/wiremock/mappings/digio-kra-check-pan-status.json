@@ -6,7 +6,7 @@
       "request": {
         "method": "POST",
         "urlPath": "/digio/v3/client/kyc/kra/v2/get_pan_status",
-        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.pan_no == 'ABJPM6976J')]" }]
+        "bodyPatterns": [{ "matchesJsonPath": "$[?(@.pan_no =~ /ABJP[A-Z][0-9]{4}J/)]" }]
       },
       "response": {
         "status": 200,

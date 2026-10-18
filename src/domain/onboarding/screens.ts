@@ -20,6 +20,9 @@ export const STEP_IDS = [
   'PHONE_VERIFIED',
   'EMAIL_VERIFIED',
   'ELIGIBILITY',
+  'IDENTITY',
+  'KYC',
+  'IPV',
 ] as const;
 export type StepId = (typeof STEP_IDS)[number];
 

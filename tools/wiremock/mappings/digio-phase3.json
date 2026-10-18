@@ -1,0 +1,53 @@
+{
+  "mappings": [
+    {
+      "name": "digio-kra-fetch-details-validated",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/digio/v3/client/kyc/kra/download_pan", "bodyPatterns": [{ "matchesJsonPath": "$[?(@.pan_no =~ /ABJP[A-Z][0-9]{4}J/)]" }] },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "jsonBody": {
+        "application_type": "I", "personal_information": { "pan_number": "ABJPM6976J", "name": "VINOD KUMAR SINGH", "dob": "16/08/1955", "gender": "M" },
+        "contact_information": { "correspondence_address": { "address_line1": "705 BHARTI APPARTMENT", "city": "FARIDABAD", "state": "006", "pin_code": "121001" } },
+        "kyc_information": { "kyc_mode": "0", "ipv_flag": "Y", "status": "Validated", "status_code": "007", "status_description": "KYC details have been successfully verified.", "status_date": "02/06/2023 17:15:24", "internal_reference": "WEBSOLICIT" },
+        "kra_information": { "kra_info": "CVLKRA" }, "error_details": { "error_description": "ERR-00000" }, "ref_id": "KCA2505221202383202QRC23TJWQ7C9U" } }
+    },
+    {
+      "name": "digio-kra-check-pan-status-no-record",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/digio/v3/client/kyc/kra/v2/get_pan_status", "bodyPatterns": [{ "matchesJsonPath": "$[?(@.pan_no =~ /NORP[A-Z][0-9]{4}X/)]" }] },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "jsonBody": { "pan_number": "NORPC0000X", "total_records": "0", "ref_id": "KCA-none" } }
+    },
+    {
+      "name": "digistudio-create-request",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/digio/client/kyc/v2/request/with_template" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "transformers": ["response-template"], "jsonBody": {
+        "id": "KID{{randomValue length=20 type='ALPHANUMERIC' uppercase=true}}", "created_at": "2026-10-18 08:51:19", "status": "requested", "customer_identifier": "{{jsonPath request.body '$.customer_identifier'}}",
+        "reference_id": "{{jsonPath request.body '$.reference_id'}}", "transaction_id": "{{jsonPath request.body '$.transaction_id'}}", "workflow_name": "{{jsonPath request.body '$.template_name'}}",
+        "access_token": { "id": "GWT{{randomValue length=20 type='ALPHANUMERIC' uppercase=true}}", "entity_id": "KID1", "valid_till": "2026-10-19 08:51:19" }, "actions": [{ "id": "a1", "type": "selfie", "status": "requested", "otp": "1234" }] } }
+    },
+    {
+      "name": "digistudio-status-default-requested",
+      "priority": 20,
+      "request": { "method": "POST", "urlPathPattern": "/digio/client/kyc/v2/KID[A-Z0-9]+/response" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "transformers": ["response-template"], "jsonBody": { "id": "{{regexExtract request.path '/digio/client/kyc/v2/(KID[A-Z0-9]+)/response'}}", "status": "requested", "actions": [{ "id": "a1", "type": "selfie", "status": "requested" }] } }
+    },
+    {
+      "name": "digistudio-regenerate-token",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/digio/user/auth/generate_token" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "jsonBody": { "id": "GWTREGEN0000000000000001", "entity_id": "KID1", "valid_till": "2026-10-19 08:51:19" } }
+    },
+    {
+      "name": "digio-liveness-pass",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/digio/v3/client/kyc/analyze/file/liveness" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "jsonBody": { "score": 92, "result": "PASS" } }
+    },
+    {
+      "name": "digio-facematch-matched",
+      "priority": 10,
+      "request": { "method": "POST", "urlPath": "/digio/v3/client/kyc/facematch" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "jsonBody": { "confidence": 90, "match_result": "matched" } }
+    }
+  ]
+}

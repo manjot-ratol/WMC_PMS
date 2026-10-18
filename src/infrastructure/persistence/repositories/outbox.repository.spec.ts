@@ -57,6 +57,33 @@ describeWithDb('Outbox and Inbox repositories (docker postgres)', () => {
     expect(again.find((r) => r.id === b)?.attempts).toBe(1);
   });
 
+  it('dead rows and poison rows are never claimed again', async () => {
+    const dead = await outbox.add({
+      aggregateType: 't',
+      aggregateId: ns,
+      eventType: 'D',
+      payload: {},
+    });
+    await outbox.markDead(dead, 'no route');
+    const poison = await outbox.add({
+      aggregateType: 't',
+      aggregateId: ns,
+      eventType: 'P',
+      payload: {},
+    });
+    for (let i = 0; i < 10; i++) await outbox.markFailed(poison, 'boom');
+    const ids = (await outbox.claimBatch(500))
+      .filter((r) => r.aggregateId === ns)
+      .map((r) => r.id);
+    expect(ids).not.toContain(dead);
+    expect(ids).not.toContain(poison);
+    const row = await prisma.businessOutbox.findUniqueOrThrow({
+      where: { id: dead },
+    });
+    expect(row.lastError).toBe('dead: no route');
+    expect(row.dispatchedAt).not.toBeNull();
+  });
+
   it('records the ambient correlation id', async () => {
     const id = await store.run(
       { correlationId: `${ns}-corr`, requestId: 'r' },

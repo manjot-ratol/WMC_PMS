@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { ValidationError } from '../../common/errors/app-error';
 import { evaluateEligibility } from './eligibility-engine';
 import { loadEligibilityRulebook } from './eligibility-rulebook';
@@ -68,5 +71,11 @@ describe('eligibility engine', () => {
   });
   it('rulebook loader rejects incomplete files', () => {
     expect(() => loadEligibilityRulebook('/dev/null')).toThrow();
+    const tmp = path.join(os.tmpdir(), `elg-${process.pid}.json`);
+    fs.writeFileSync(tmp, JSON.stringify({ version: 'x' }));
+    expect(() => loadEligibilityRulebook(tmp)).toThrow(
+      /missing "effectiveFrom"/,
+    );
+    fs.unlinkSync(tmp);
   });
 });

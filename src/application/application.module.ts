@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
-import {
-  ELIGIBILITY_RULEBOOK,
-  loadEligibilityRulebook,
-} from '../domain/eligibility/eligibility-rulebook';
+import { DocumentService } from './documents/document.service';
+import { AdditionalVerificationService } from './kyc/additional-verification.service';
+import { IdentityService } from './kyc/identity.service';
+import { KycConfirmationService } from './kyc/kyc-confirmation.service';
+import { KycQueryService } from './kyc/kyc-query.service';
+import { KycSessionService } from './kyc/kyc-session.service';
+import { KycRelianceRulebookProviders } from './rulebooks.providers';
 import { MessagingModule } from '../infrastructure/messaging/messaging.module';
 import { OtpService } from './auth/otp.service';
 import { PhoneChallengeService } from './auth/phone-challenge.service';
@@ -15,22 +18,31 @@ import { EmailVerificationService } from './onboarding/email-verification.servic
 @Module({
   imports: [MessagingModule],
   providers: [
-    {
-      provide: ELIGIBILITY_RULEBOOK,
-      useFactory: () => loadEligibilityRulebook(),
-    },
+    ...KycRelianceRulebookProviders,
     OtpService,
     ApplicationLifecycleService,
     PhoneChallengeService,
     EmailVerificationService,
     EligibilityService,
     ApplicationQueryService,
+    IdentityService,
+    KycQueryService,
+    KycConfirmationService,
+    KycSessionService,
+    DocumentService,
+    AdditionalVerificationService,
   ],
   exports: [
     PhoneChallengeService,
     EmailVerificationService,
     EligibilityService,
     ApplicationQueryService,
+    IdentityService,
+    KycQueryService,
+    KycConfirmationService,
+    KycSessionService,
+    DocumentService,
+    AdditionalVerificationService,
   ],
 })
 export class ApplicationServicesModule {}

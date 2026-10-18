@@ -17,7 +17,7 @@ async function waitFor(
 }
 
 export default async function globalSetup(): Promise<void> {
-  loadTestEnv();
+  loadTestEnv({ override: true });
   process.env.ENV_FILE = '.env.test';
   await waitFor('wiremock', () => wiremock.healthy());
   await waitFor(
@@ -36,6 +36,14 @@ export default async function globalSetup(): Promise<void> {
     10,
   );
   await wiremock.reset();
+  // Leftover undispatched outbox rows from earlier runs would compete with this run's events.
+  // Done via the CLI: importing @prisma/client here would auto-load the developer .env before our env is set.
+  execSync('npx prisma db execute --stdin --schema prisma/schema.prisma', {
+    stdio: 'pipe',
+    env: process.env,
+    input:
+      "UPDATE reliability.business_outbox SET dispatched_at = now(), last_error = 'dead: sit-reset' WHERE dispatched_at IS NULL;",
+  });
   // The SIT redis db (index 15) is dedicated to tests: clear rate-limit counters and leftovers from earlier runs.
   const redis = new Redis(process.env.REDIS_URL!);
   await redis.flushdb();

@@ -6,4 +6,11 @@ export const ID_PREFIX = {
   emailChallenge: 'ech',
   session: 'ses',
   eligibility: 'elg',
+  kycRecord: 'kyc',
+  kycSession: 'ks',
+  operation: 'op',
+  upload: 'upl',
+  document: 'doc',
+  verification: 'av',
+  task: 'task',
 } as const;

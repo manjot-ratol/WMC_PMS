@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { evaluateIpv } from './additional-verification';
 import { loadIpvRulebook } from './ipv-rulebook';
 
@@ -59,5 +62,9 @@ describe('evaluateIpv', () => {
   });
   it('rulebook loader validates required keys', () => {
     expect(() => loadIpvRulebook('/dev/null')).toThrow();
+    const tmp = path.join(os.tmpdir(), `ipv-${process.pid}.json`);
+    fs.writeFileSync(tmp, JSON.stringify({ version: 'x' }));
+    expect(() => loadIpvRulebook(tmp)).toThrow(/missing "minLivenessScore"/);
+    fs.unlinkSync(tmp);
   });
 });

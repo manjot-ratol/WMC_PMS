@@ -17,6 +17,7 @@ describe('OutboxDispatcherProcessor', () => {
     claimBatch: jest.fn(),
     markDispatched: jest.fn(),
     markFailed: jest.fn(),
+    markDead: jest.fn(),
     add: jest.fn(),
   };
   const publisher = { publish: jest.fn() };
@@ -64,7 +65,7 @@ describe('OutboxDispatcherProcessor', () => {
     expect(result).toEqual({ claimed: 1, dispatched: 1, failed: 0 });
   });
 
-  it('marks unknown event types failed with a reason and continues', async () => {
+  it('dead-letters unknown event types with a reason and continues', async () => {
     outbox.claimBatch.mockResolvedValue([
       {
         id: 'ob-2',
@@ -89,7 +90,7 @@ describe('OutboxDispatcherProcessor', () => {
     ]);
     publisher.publish.mockResolvedValue(undefined);
     const result = await processor.handle({ limit: 50 });
-    expect(outbox.markFailed).toHaveBeenCalledWith(
+    expect(outbox.markDead).toHaveBeenCalledWith(
       'ob-2',
       expect.stringMatching(/no route/i),
     );

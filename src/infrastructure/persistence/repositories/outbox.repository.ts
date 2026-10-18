@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  OutboxEventInput,
-  OutboxPort,
-  OutboxRow,
+import {
+  OUTBOX_MAX_ATTEMPTS,
+  type OutboxEventInput,
+  type OutboxPort,
+  type OutboxRow,
 } from '../../../application/ports/outbox.port';
 import { CorrelationStore } from '../../../common/correlation/correlation.store';
 import type { Prisma } from '@prisma/client';
@@ -33,7 +34,7 @@ export class OutboxRepository implements OutboxPort {
 
   async claimBatch(limit: number): Promise<OutboxRow[]> {
     const rows = await this.prisma.businessOutbox.findMany({
-      where: { dispatchedAt: null },
+      where: { dispatchedAt: null, attempts: { lt: OUTBOX_MAX_ATTEMPTS } },
       orderBy: { createdAt: 'asc' },
       take: limit,
     });
@@ -53,6 +54,16 @@ export class OutboxRepository implements OutboxPort {
     await this.prisma.businessOutbox.update({
       where: { id },
       data: { dispatchedAt: new Date(), attempts: { increment: 1 } },
+    });
+  }
+
+  async markDead(id: string, reason: string): Promise<void> {
+    await this.prisma.businessOutbox.update({
+      where: { id },
+      data: {
+        dispatchedAt: new Date(),
+        lastError: `dead: ${reason}`.slice(0, 1000),
+      },
     });
   }
 

@@ -33,7 +33,8 @@ export class BullJobPublisher implements JobPublisherPort {
     };
     await this.queues.get(queue).add(name, data, {
       ...DEFAULT_JOB_OPTIONS,
-      jobId: opts.jobId,
+      // BullMQ rejects custom ids containing ':'
+      jobId: opts.jobId?.replace(/:/g, '-'),
       delay: opts.delayMs,
     });
   }

@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
+import { JobsModule } from '../application/jobs/jobs.module';
 import { QueueModule } from '../infrastructure/queue/queue.module';
 import { PlatformModule } from './platform.module';
 
 /** Worker process: processors and the outbox scheduler, no HTTP. */
-@Module({ imports: [PlatformModule, QueueModule.forWorker()] })
+@Module({ imports: [PlatformModule, QueueModule.forWorker(), JobsModule] })
 export class WorkerModule {}
