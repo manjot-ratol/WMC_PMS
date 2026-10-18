@@ -121,6 +121,37 @@ describe('MfCentralGateway (remote helper crypto, as in the UAT collection)', ()
       'https://uatapp.mfcentral.com/?reqId=3088880&clientRefNo=ref1',
     );
   });
+  it('decrypts an encrypted validation rejection and surfaces the vendor errors', async () => {
+    tokenStub();
+    nock(BASE).post('/api/test/encrypt').reply(200, 'E1');
+    nock(BASE).post('/api/test/generateSignature').reply(200, 'S1');
+    nock(BASE)
+      .post('/api/client/V1/newCasRequest')
+      .reply(422, { signature: 'x', response: 'ENC_ERR' });
+    nock(BASE)
+      .post('/api/test/decrypt', 'ENC_ERR')
+      .reply(
+        200,
+        JSON.stringify({
+          reqId: '529',
+          errors: [{ code: '422', message: 'Invalid Input' }],
+        }),
+      );
+    await expect(
+      new MfCentralGateway(http(), cfg()).newCasRequest({
+        clientRefNo: 'r',
+        pan: 'P',
+        redirectUrl: 'u',
+      }),
+    ).rejects.toMatchObject({
+      code: 'PARTNER_REJECTED',
+      vendorCode: '422',
+      details: {
+        reqId: '529',
+        vendorErrors: [{ code: '422', message: 'Invalid Input' }],
+      },
+    });
+  });
   it('maps token failures, vendor rejections and outages', async () => {
     nock(BASE).post('/oauth/token').reply(200, { token_type: 'bearer' });
     await expect(

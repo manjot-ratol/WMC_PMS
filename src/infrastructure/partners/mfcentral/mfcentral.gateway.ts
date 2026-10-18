@@ -145,16 +145,45 @@ export class MfCentralGateway implements MfCentralGatewayPort {
     const token = await this.accessToken();
     const encrypted = await this.crypto.encrypt(JSON.stringify(payload));
     const signature = await this.crypto.sign(encrypted);
-    const res = await this.call<EnvelopeResponse>(operation, {
-      method: 'POST',
-      url: `${this.cfg.baseUrl}${path}`,
-      body: { signature, request: encrypted },
-      headers: {
-        ClientId: this.cfg.clientId,
-        Authorization: `Bearer ${token}`,
-        Origin: this.cfg.appUrl,
-      },
-    });
+    let res: { data: EnvelopeResponse };
+    try {
+      res = await this.call<EnvelopeResponse>(operation, {
+        method: 'POST',
+        url: `${this.cfg.baseUrl}${path}`,
+        body: { signature, request: encrypted },
+        headers: {
+          ClientId: this.cfg.clientId,
+          Authorization: `Bearer ${token}`,
+          Origin: this.cfg.appUrl,
+        },
+      });
+    } catch (err) {
+      // Validation rejections come back encrypted too ({reqId, errors:[{code,message}]}); surface them for operators.
+      if (err instanceof PartnerRejectedError) {
+        const cipher = (err.cause as { body?: EnvelopeResponse } | undefined)
+          ?.body?.response;
+        if (typeof cipher === 'string') {
+          const decoded = await this.tryDecrypt(cipher);
+          if (decoded) {
+            throw new PartnerRejectedError(
+              'mfcentral',
+              firstErrorCode(decoded),
+              undefined,
+              {
+                cause: err,
+                details: {
+                  ...(err.details as Record<string, unknown>),
+                  operation,
+                  reqId: str(decoded.reqId),
+                  vendorErrors: decoded.errors,
+                },
+              },
+            );
+          }
+        }
+      }
+      throw err;
+    }
     const cipher = res.data.response ?? res.data.data ?? res.data.request;
     const decrypted =
       typeof cipher === 'string'
@@ -169,6 +198,22 @@ export class MfCentralGateway implements MfCentralGatewayPort {
       status: str(decrypted.status),
       raw: decrypted,
     };
+  }
+
+  private async tryDecrypt(
+    cipher: string,
+  ): Promise<
+    | { reqId?: unknown; errors?: { code?: string; message?: string }[] }
+    | undefined
+  > {
+    try {
+      return JSON.parse(await this.crypto.decrypt(cipher)) as {
+        reqId?: unknown;
+        errors?: { code?: string; message?: string }[];
+      };
+    } catch {
+      return undefined;
+    }
   }
 
   private async call<T>(
@@ -221,3 +266,6 @@ class RemoteHelperCrypto implements MfCentralCryptoPort {
 }
 const str = (v: unknown): string | undefined =>
   typeof v === 'string' || typeof v === 'number' ? String(v) : undefined;
+const firstErrorCode = (d: {
+  errors?: { code?: string }[];
+}): string | undefined => d.errors?.[0]?.code;
