@@ -10,6 +10,7 @@ import { FEE_REPOSITORY } from '../../application/ports/fee.repository.port';
 import { REVIEW_REPOSITORY } from '../../application/ports/review.repository.port';
 import { SUITABILITY_REPOSITORY } from '../../application/ports/suitability.repository.port';
 import { COMPLIANCE_REPOSITORY } from '../../application/ports/compliance.repository.port';
+import { PORTFOLIO_REPOSITORY } from '../../application/ports/portfolio.repository.port';
 import { NOMINATION_REPOSITORY } from '../../application/ports/nomination.repository.port';
 import {
   DECLARATIONS_REPOSITORY,
@@ -48,6 +49,7 @@ import { FeeRepository } from './repositories/fee.repository';
 import { ReviewRepository } from './repositories/review.repository';
 import { SuitabilityRepository } from './repositories/suitability.repository';
 import { ComplianceRepository } from './repositories/compliance.repository';
+import { PortfolioRepository } from './repositories/portfolio.repository';
 import { NominationRepository } from './repositories/nomination.repository';
 import {
   DeclarationsRepository,
@@ -111,6 +113,7 @@ import { PrismaUnitOfWork } from './unit-of-work';
     { provide: REVIEW_REPOSITORY, useClass: ReviewRepository },
     { provide: NOMINATION_REPOSITORY, useClass: NominationRepository },
     { provide: COMPLIANCE_REPOSITORY, useClass: ComplianceRepository },
+    { provide: PORTFOLIO_REPOSITORY, useClass: PortfolioRepository },
   ],
   exports: [
     CUSTOMER_REPOSITORY,
@@ -131,6 +134,7 @@ import { PrismaUnitOfWork } from './unit-of-work';
     BANK_REPOSITORY,
     NOMINATION_REPOSITORY,
     COMPLIANCE_REPOSITORY,
+    PORTFOLIO_REPOSITORY,
     SUITABILITY_REPOSITORY,
     FEE_REPOSITORY,
     REVIEW_REPOSITORY,

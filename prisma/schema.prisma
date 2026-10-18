@@ -728,3 +728,39 @@ model ReviewDecision {
   @@map("review_decisions")
   @@schema("compliance")
 }
+
+// Phase 9: MF Central portfolio import (screens 06A–06B)
+model PortfolioImport {
+  id                String    @id
+  applicationId     String    @map("application_id")
+  provider          String
+  status            String
+  clientRefNo       String    @unique @map("client_ref_no")
+  providerRequestId String?   @map("provider_request_id")
+  authorisationUrl  String?   @map("authorisation_url")
+  failureCategory   String?   @map("failure_category")
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz
+  createdAt         DateTime  @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  completedAt       DateTime? @map("completed_at") @db.Timestamptz
+
+  @@index([applicationId, createdAt])
+  @@index([providerRequestId])
+  @@map("portfolio_imports")
+  @@schema("onboarding")
+}
+
+model PortfolioSnapshot {
+  id            String   @id
+  importId      String   @unique @map("import_id")
+  applicationId String   @map("application_id")
+  asOf          String   @map("as_of")
+  /** Masked dashboard model, encrypted at rest (holdings are financial PII). */
+  data          Bytes
+  evidenceKey   String   @map("evidence_key")
+  createdAt     DateTime @map("created_at") @db.Timestamptz
+
+  @@index([applicationId, createdAt])
+  @@map("portfolio_snapshots")
+  @@schema("onboarding")
+}
