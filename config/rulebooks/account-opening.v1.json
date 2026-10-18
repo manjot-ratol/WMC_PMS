@@ -1,0 +1,8 @@
+{
+  "version": "account_opening_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: filing timelines, CKYC applicability and required account types are illustrative.",
+  "kraFilingDays": 10,
+  "ckycEnabled": false,
+  "kraServiceProvider": "CDSL",
+  "requiredAccountTypes": ["PMS_ACCOUNT", "DEMAT"]
+}

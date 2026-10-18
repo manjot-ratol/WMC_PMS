@@ -551,3 +551,141 @@ model ReviewSnapshot {
   @@map("review_snapshots")
   @@schema("onboarding")
 }
+
+// ---------------- phase 6: signing, account opening, funding, activation ----------------
+
+model SigningSession {
+  id                  String    @id
+  applicationId       String    @map("application_id")
+  snapshotId          String    @map("snapshot_id")
+  documentPackVersion Int       @map("document_pack_version")
+  signingMethod       String    @map("signing_method")
+  status              String
+  providerRequestId   String?   @map("provider_request_id")
+  packObjectKey       String    @map("pack_object_key")
+  packSha256          String    @map("pack_sha256")
+  documents           Json
+  pollCount           Int       @default(0) @map("poll_count")
+  lastProviderStatus  String?   @map("last_provider_status")
+  safeErrorCategory   String?   @map("safe_error_category")
+  evidenceKey         String?   @map("evidence_key")
+  createdAt           DateTime  @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  executedAt          DateTime? @map("executed_at") @db.Timestamptz
+
+  @@index([applicationId, status])
+  @@index([providerRequestId])
+  @@index([snapshotId])
+  @@map("signing_sessions")
+  @@schema("onboarding")
+}
+
+model AccountOpeningRun {
+  id                  String    @id
+  applicationId       String    @map("application_id")
+  snapshotId          String    @map("snapshot_id")
+  documentPackVersion Int       @map("document_pack_version")
+  status              String
+  blockers            Json
+  createdAt           DateTime  @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  completedAt         DateTime? @map("completed_at") @db.Timestamptz
+
+  @@index([applicationId, status])
+  @@map("account_opening_runs")
+  @@schema("onboarding")
+}
+
+model RegistrySubmission {
+  id                 String    @id
+  applicationId      String    @map("application_id")
+  runId              String    @map("run_id")
+  registry           String
+  status             String
+  basis              String?
+  providerRequestId  String?   @map("provider_request_id")
+  clientReferenceId  String?   @map("client_reference_id")
+  lastProviderStatus String?   @map("last_provider_status")
+  deadlineAt         DateTime? @map("deadline_at") @db.Timestamptz
+  evidenceKey        String?   @map("evidence_key")
+  safeErrorCategory  String?   @map("safe_error_category")
+  createdAt          DateTime  @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([applicationId, registry])
+  @@index([providerRequestId])
+  @@index([clientReferenceId])
+  @@map("registry_submissions")
+  @@schema("onboarding")
+}
+
+model UnderlyingAccount {
+  id                 String   @id
+  applicationId      String   @map("application_id")
+  providerReceiptKey String   @unique @map("provider_receipt_key")
+  provider           String
+  accountType        String   @map("account_type")
+  accountReference   String   @map("account_reference")
+  status             String
+  receivedAt         DateTime @map("received_at") @db.Timestamptz
+
+  @@index([applicationId, accountType])
+  @@map("underlying_accounts")
+  @@schema("onboarding")
+}
+
+model FundingNotification {
+  id                        String   @id
+  applicationId             String   @map("application_id")
+  fundingMethod             String   @map("funding_method")
+  customerTransferReference Bytes    @map("customer_transfer_reference")
+  createdAt                 DateTime @map("created_at") @db.Timestamptz
+
+  @@index([applicationId])
+  @@map("funding_notifications")
+  @@schema("onboarding")
+}
+
+model FundingReceipt {
+  id                       String   @id
+  applicationId            String   @map("application_id")
+  providerReceiptKey       String   @unique @map("provider_receipt_key")
+  provider                 String
+  amountInr                BigInt   @map("amount_inr")
+  currency                 String
+  sourceAccountFingerprint String?  @map("source_account_fingerprint")
+  destinationReference     String   @map("destination_reference")
+  valueDate                String   @map("value_date")
+  matchStatus              String   @map("match_status")
+  mismatchReasons          Json     @map("mismatch_reasons")
+  receivedAt               DateTime @map("received_at") @db.Timestamptz
+
+  @@index([applicationId, matchStatus])
+  @@map("funding_receipts")
+  @@schema("onboarding")
+}
+
+model Activation {
+  id            String   @id
+  applicationId String   @unique @map("application_id")
+  pmsAccountId  String   @map("pms_account_id")
+  gateSnapshot  Json     @map("gate_snapshot")
+  activatedAt   DateTime @map("activated_at") @db.Timestamptz
+
+  @@map("activations")
+  @@schema("onboarding")
+}
+
+model TaskResponse {
+  id           String   @id
+  taskId       String   @map("task_id")
+  applicationId String  @map("application_id")
+  responseType String   @map("response_type")
+  documentIds  Json     @map("document_ids")
+  text         Bytes?
+  submittedAt  DateTime @map("submitted_at") @db.Timestamptz
+
+  @@index([taskId])
+  @@map("task_responses")
+  @@schema("onboarding")
+}

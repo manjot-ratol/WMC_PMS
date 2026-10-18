@@ -4,6 +4,10 @@ import { DocumentService } from './documents/document.service';
 import { NominationService } from './nomination/nomination.service';
 import { DeclarationsService } from './profile/declarations.service';
 import { ProfileService } from './profile/profile.service';
+import { AccountOpeningService } from './account-opening/account-opening.service';
+import { FundingService } from './funding/funding.service';
+import { ProcessingService } from './processing/processing.service';
+import { SigningService } from './signing/signing.service';
 import { FeesService } from './fees/fees.service';
 import { ReviewService } from './review/review.service';
 import { SuitabilityService } from './suitability/suitability.service';
@@ -45,6 +49,10 @@ import { EmailVerificationService } from './onboarding/email-verification.servic
     SuitabilityService,
     FeesService,
     ReviewService,
+    SigningService,
+    ProcessingService,
+    AccountOpeningService,
+    FundingService,
   ],
   exports: [
     PhoneChallengeService,
@@ -64,6 +72,10 @@ import { EmailVerificationService } from './onboarding/email-verification.servic
     SuitabilityService,
     FeesService,
     ReviewService,
+    SigningService,
+    ProcessingService,
+    AccountOpeningService,
+    FundingService,
   ],
 })
 export class ApplicationServicesModule {}

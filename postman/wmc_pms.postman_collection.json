@@ -1,6 +1,6 @@
 {
  "info": {
-  "name": "WMC PMS Onboarding - screens 01-20",
+  "name": "WMC PMS Onboarding - screens 01-25",
   "_postman_id": "7c1f1d3e-5a6b-4b0f-9f6e-wmcpms0000002",
   "description": "Runs the onboarding journey against the local backend (`make up` + `npm run start:api`).\n\nOTP delivery locally: the SMS sender only logs a masked destination, so read the phone OTP from the API log at debug level (`LOG_LEVEL=debug`, event `sms.sent` is masked; the code is NOT logged). For local testing use the Mailpit UI (http://localhost:8025) for email codes, and for phone codes run with `APP_ENV=local` and read the code from the MessageSpy via the SIT harness, or use the SIT suite (`make sit`) which drives the whole journey automatically.\n\nVariables chain automatically via test scripts: preauth_token, challenge_id, session_token, application_id, email_challenge_id.",
   "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -84,6 +84,22 @@
   },
   {
    "key": "snapshot_id",
+   "value": ""
+  },
+  {
+   "key": "internal_token",
+   "value": "change-me-internal-token"
+  },
+  {
+   "key": "signing_session_id",
+   "value": ""
+  },
+  {
+   "key": "task_id",
+   "value": ""
+  },
+  {
+   "key": "payment_reference",
    "value": ""
   }
  ],
@@ -916,6 +932,313 @@
      }
     }
    ]
+  },
+  {
+   "name": "21 Create signing session",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/signing-sessions",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"snapshot_id\": \"{{snapshot_id}}\",\n  \"document_pack_version\": 1,\n  \"signing_method\": \"AADHAAR_ESIGN\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('201', () => pm.response.to.have.status(201));",
+       "const b = pm.response.json(); pm.collectionVariables.set('signing_session_id', b.signing_session_id);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "21 Signing status (poll)",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/signing-sessions/{{signing_session_id}}"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "22 Processing status",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/status"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "22 Respond to task",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/tasks/{{task_id}}/responses",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"response_type\": \"TEXT\",\n  \"text\": \"Clarification provided.\"\n}"
+    }
+   }
+  },
+  {
+   "name": "Internal \u00b7 underlying account READY (PMS)",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/underlying-accounts",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"CUSTODIAN\",\n  \"account_type\": \"PMS_ACCOUNT\",\n  \"account_reference\": \"PMS000123\",\n  \"status\": \"READY\"\n}"
+    }
+   }
+  },
+  {
+   "name": "Internal \u00b7 underlying account READY (DEMAT)",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/underlying-accounts",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"DP\",\n  \"account_type\": \"DEMAT\",\n  \"account_reference\": \"IN000123\",\n  \"status\": \"READY\"\n}"
+    }
+   }
+  },
+  {
+   "name": "23 Funding instructions",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/funding-instructions"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));",
+       "const b = pm.response.json(); pm.collectionVariables.set('payment_reference', b.payment_reference);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "23 Funding notification",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/funding-notifications",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"funding_method\": \"BANK_TRANSFER\",\n  \"customer_transfer_reference\": \"UTR123456789\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('202', () => pm.response.to.have.status(202));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "Internal \u00b7 funding receipt",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/funding-receipts",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"BANK\",\n  \"amount_inr\": 5000000,\n  \"currency\": \"INR\",\n  \"source_account_number\": \"999912345678\",\n  \"destination_reference\": \"{{payment_reference}}\",\n  \"value_date\": \"2026-10-18\"\n}"
+    }
+   }
+  },
+  {
+   "name": "24 Funding status (poll)",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/funding-status"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "25 Completion",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/completion"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "Internal \u00b7 re-queue account opening",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "X-Internal-Token",
+      "value": "{{internal_token}}"
+     },
+     {
+      "key": "X-Reviewer-Id",
+      "value": "ops-1"
+     }
+    ],
+    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/account-opening-runs",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"snapshot_id\": \"{{snapshot_id}}\",\n  \"document_pack_version\": 1\n}"
+    }
+   }
   }
  ]
 }

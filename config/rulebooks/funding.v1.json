@@ -1,0 +1,7 @@
+{
+  "version": "funding_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: funding methods and reference format are illustrative.",
+  "allowedMethods": ["BANK_TRANSFER"],
+  "referencePrefix": "PMS",
+  "currency": "INR"
+}

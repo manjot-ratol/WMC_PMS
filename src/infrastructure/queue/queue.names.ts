@@ -11,6 +11,7 @@ export const QUEUES = {
   ACCOUNT_OPENING: 'account-opening',
   WEBHOOKS: 'webhook-processing',
   ACTIVATION: 'activation',
+  SIGNING: 'signing-status',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];

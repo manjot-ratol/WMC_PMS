@@ -1,6 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import { ANALYTICS } from '../../application/ports/analytics.port';
 import { BANK_REPOSITORY } from '../../application/ports/bank.repository.port';
+import { ACCOUNT_OPENING_REPOSITORY } from '../../application/ports/account-opening.repository.port';
+import { ACTIVATION_REPOSITORY } from '../../application/ports/activation.repository.port';
+import { FUNDING_REPOSITORY } from '../../application/ports/funding.repository.port';
+import { SIGNING_REPOSITORY } from '../../application/ports/signing.repository.port';
 import { FEE_REPOSITORY } from '../../application/ports/fee.repository.port';
 import { REVIEW_REPOSITORY } from '../../application/ports/review.repository.port';
 import { SUITABILITY_REPOSITORY } from '../../application/ports/suitability.repository.port';
@@ -35,6 +39,10 @@ import { UNIT_OF_WORK } from '../../application/ports/unit-of-work.port';
 import { PrismaService } from './prisma.service';
 import { AnalyticsOutboxRepository } from './repositories/analytics-outbox.repository';
 import { BankRepository } from './repositories/bank.repository';
+import { AccountOpeningRepository } from './repositories/account-opening.repository';
+import { ActivationRepository } from './repositories/activation.repository';
+import { FundingRepository } from './repositories/funding.repository';
+import { SigningRepository } from './repositories/signing.repository';
 import { FeeRepository } from './repositories/fee.repository';
 import { ReviewRepository } from './repositories/review.repository';
 import { SuitabilityRepository } from './repositories/suitability.repository';
@@ -92,6 +100,10 @@ import { PrismaUnitOfWork } from './unit-of-work';
     { provide: PROFILE_REPOSITORY, useClass: ProfileRepository },
     { provide: DECLARATIONS_REPOSITORY, useClass: DeclarationsRepository },
     { provide: BANK_REPOSITORY, useClass: BankRepository },
+    { provide: SIGNING_REPOSITORY, useClass: SigningRepository },
+    { provide: ACCOUNT_OPENING_REPOSITORY, useClass: AccountOpeningRepository },
+    { provide: FUNDING_REPOSITORY, useClass: FundingRepository },
+    { provide: ACTIVATION_REPOSITORY, useClass: ActivationRepository },
     { provide: SUITABILITY_REPOSITORY, useClass: SuitabilityRepository },
     { provide: FEE_REPOSITORY, useClass: FeeRepository },
     { provide: REVIEW_REPOSITORY, useClass: ReviewRepository },
@@ -119,6 +131,10 @@ import { PrismaUnitOfWork } from './unit-of-work';
     SUITABILITY_REPOSITORY,
     FEE_REPOSITORY,
     REVIEW_REPOSITORY,
+    SIGNING_REPOSITORY,
+    ACCOUNT_OPENING_REPOSITORY,
+    FUNDING_REPOSITORY,
+    ACTIVATION_REPOSITORY,
     PrismaService,
     UNIT_OF_WORK,
     OUTBOX,

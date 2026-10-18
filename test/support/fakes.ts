@@ -347,6 +347,7 @@ import type { DocumentRepositoryPort } from '../../src/application/ports/documen
 import type {
   TaskRecord,
   TaskRepositoryPort,
+  TaskResponseRecord,
   VerificationRepositoryPort,
 } from '../../src/application/ports/verification.repository.port';
 import type {
@@ -520,8 +521,21 @@ export class FakeVerifications implements VerificationRepositoryPort {
 }
 export class FakeTasks implements TaskRepositoryPort {
   readonly rows: TaskRecord[] = [];
+  readonly responses: TaskResponseRecord[] = [];
   create(t: TaskRecord): Promise<void> {
     this.rows.push(t);
+    return Promise.resolve();
+  }
+  findById(id: string): Promise<TaskRecord | null> {
+    return Promise.resolve(this.rows.find((t) => t.id === id) ?? null);
+  }
+  update(t: TaskRecord): Promise<void> {
+    const i = this.rows.findIndex((x) => x.id === t.id);
+    if (i >= 0) this.rows[i] = t;
+    return Promise.resolve();
+  }
+  createResponse(r: TaskResponseRecord): Promise<void> {
+    this.responses.push(r);
     return Promise.resolve();
   }
   listOpen(applicationId: string): Promise<TaskRecord[]> {
@@ -849,5 +863,239 @@ export class FakeReviews implements ReviewRepositoryPort {
         this.snapshots[i] = { ...s, status: 'SUPERSEDED' };
     });
     return Promise.resolve();
+  }
+}
+
+/* ---------- Phase 6 fakes ---------- */
+import type { AccountOpeningRepositoryPort } from '../../src/application/ports/account-opening.repository.port';
+import type { ActivationRepositoryPort } from '../../src/application/ports/activation.repository.port';
+import type {
+  CreateSignRequestCommand,
+  EsignGatewayPort,
+  SignDocumentStatus,
+  SignRequestCreated,
+} from '../../src/application/ports/esign-gateway.port';
+import type { FundingRepositoryPort } from '../../src/application/ports/funding.repository.port';
+import type { SigningRepositoryPort } from '../../src/application/ports/signing.repository.port';
+import type {
+  DocumentRendererPort,
+  RenderedText,
+} from '../../src/application/ports/document-renderer.port';
+import type {
+  AccountOpeningRun,
+  RegistrySubmission,
+  UnderlyingAccount,
+} from '../../src/domain/account-opening/account-opening';
+import type { Activation } from '../../src/domain/activation/activation';
+import type {
+  FundingNotification,
+  FundingReceipt,
+} from '../../src/domain/funding/funding';
+import type { SigningSession } from '../../src/domain/signing/signing-session';
+
+export class FakeSigning implements SigningRepositoryPort {
+  readonly rows = new Map<string, SigningSession>();
+  create(s: SigningSession): Promise<void> {
+    this.rows.set(s.id, s);
+    return Promise.resolve();
+  }
+  findById(id: string): Promise<SigningSession | null> {
+    return Promise.resolve(this.rows.get(id) ?? null);
+  }
+  findByProviderRequestId(
+    providerRequestId: string,
+  ): Promise<SigningSession | null> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .reverse()
+        .find((s) => s.providerRequestId === providerRequestId) ?? null,
+    );
+  }
+  latestForSnapshot(snapshotId: string): Promise<SigningSession | null> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .reverse()
+        .find((s) => s.snapshotId === snapshotId) ?? null,
+    );
+  }
+  latestForApplication(applicationId: string): Promise<SigningSession | null> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .reverse()
+        .find((s) => s.applicationId === applicationId) ?? null,
+    );
+  }
+  update(s: SigningSession): Promise<void> {
+    this.rows.set(s.id, s);
+    return Promise.resolve();
+  }
+}
+export class FakeAccountOpening implements AccountOpeningRepositoryPort {
+  readonly runs = new Map<string, AccountOpeningRun>();
+  readonly submissions: RegistrySubmission[] = [];
+  readonly accounts: UnderlyingAccount[] = [];
+  createRun(r: AccountOpeningRun): Promise<void> {
+    this.runs.set(r.id, r);
+    return Promise.resolve();
+  }
+  findRun(id: string): Promise<AccountOpeningRun | null> {
+    return Promise.resolve(this.runs.get(id) ?? null);
+  }
+  latestRun(applicationId: string): Promise<AccountOpeningRun | null> {
+    return Promise.resolve(
+      [...this.runs.values()]
+        .reverse()
+        .find((r) => r.applicationId === applicationId) ?? null,
+    );
+  }
+  updateRun(r: AccountOpeningRun): Promise<void> {
+    this.runs.set(r.id, r);
+    return Promise.resolve();
+  }
+  createSubmission(s: RegistrySubmission): Promise<void> {
+    this.submissions.push(s);
+    return Promise.resolve();
+  }
+  findSubmissionByReference(ref: {
+    providerRequestId?: string;
+    clientReferenceId?: string;
+  }): Promise<RegistrySubmission | null> {
+    return Promise.resolve(
+      this.submissions.find(
+        (s) =>
+          (ref.providerRequestId &&
+            s.providerRequestId === ref.providerRequestId) ||
+          (ref.clientReferenceId &&
+            s.clientReferenceId === ref.clientReferenceId),
+      ) ?? null,
+    );
+  }
+  listSubmissions(applicationId: string): Promise<RegistrySubmission[]> {
+    return Promise.resolve(
+      this.submissions.filter((s) => s.applicationId === applicationId),
+    );
+  }
+  updateSubmission(s: RegistrySubmission): Promise<void> {
+    const i = this.submissions.findIndex((x) => x.id === s.id);
+    if (i >= 0) this.submissions[i] = s;
+    return Promise.resolve();
+  }
+  insertUnderlyingAccountIfNew(
+    a: UnderlyingAccount,
+  ): Promise<{ inserted: boolean; account: UnderlyingAccount }> {
+    const existing = this.accounts.find(
+      (x) => x.providerReceiptKey === a.providerReceiptKey,
+    );
+    if (existing)
+      return Promise.resolve({ inserted: false, account: existing });
+    this.accounts.push(a);
+    return Promise.resolve({ inserted: true, account: a });
+  }
+  listUnderlyingAccounts(applicationId: string): Promise<UnderlyingAccount[]> {
+    return Promise.resolve(
+      this.accounts.filter((a) => a.applicationId === applicationId),
+    );
+  }
+}
+export class FakeFunding implements FundingRepositoryPort {
+  readonly notifications: FundingNotification[] = [];
+  readonly receipts: FundingReceipt[] = [];
+  createNotification(n: FundingNotification): Promise<void> {
+    this.notifications.push(n);
+    return Promise.resolve();
+  }
+  latestNotification(
+    applicationId: string,
+  ): Promise<FundingNotification | null> {
+    return Promise.resolve(
+      [...this.notifications]
+        .reverse()
+        .find((n) => n.applicationId === applicationId) ?? null,
+    );
+  }
+  insertReceiptIfNew(
+    r: FundingReceipt,
+  ): Promise<{ inserted: boolean; receipt: FundingReceipt }> {
+    const existing = this.receipts.find(
+      (x) => x.providerReceiptKey === r.providerReceiptKey,
+    );
+    if (existing)
+      return Promise.resolve({ inserted: false, receipt: existing });
+    this.receipts.push(r);
+    return Promise.resolve({ inserted: true, receipt: r });
+  }
+  listReceipts(applicationId: string): Promise<FundingReceipt[]> {
+    return Promise.resolve(
+      this.receipts.filter((r) => r.applicationId === applicationId),
+    );
+  }
+  sumMatched(applicationId: string): Promise<number> {
+    return Promise.resolve(
+      this.receipts
+        .filter(
+          (r) =>
+            r.applicationId === applicationId && r.matchStatus === 'MATCHED',
+        )
+        .reduce((s, r) => s + r.amountInr, 0),
+    );
+  }
+}
+export class FakeActivations implements ActivationRepositoryPort {
+  readonly rows: Activation[] = [];
+  create(a: Activation): Promise<void> {
+    if (this.rows.some((x) => x.applicationId === a.applicationId))
+      return Promise.reject(
+        new Error('unique violation: activations.application_id'),
+      );
+    this.rows.push(a);
+    return Promise.resolve();
+  }
+  findByApplication(applicationId: string): Promise<Activation | null> {
+    return Promise.resolve(
+      this.rows.find((a) => a.applicationId === applicationId) ?? null,
+    );
+  }
+}
+export class FakeEsign implements EsignGatewayPort {
+  readonly requests: CreateSignRequestCommand[] = [];
+  status: SignDocumentStatus = {
+    providerDocumentId: 'DID1',
+    agreementStatus: 'requested',
+    signers: [{ status: 'requested' }],
+    raw: {},
+  };
+  createSignRequest(
+    cmd: CreateSignRequestCommand,
+  ): Promise<SignRequestCreated> {
+    this.requests.push(cmd);
+    return Promise.resolve({
+      providerDocumentId: `DID${this.requests.length}`,
+      agreementStatus: 'requested',
+      accessToken: { id: `GWT${this.requests.length}` },
+      raw: { id: `DID${this.requests.length}` },
+    });
+  }
+  getDocument(providerDocumentId: string): Promise<SignDocumentStatus> {
+    return Promise.resolve({ ...this.status, providerDocumentId });
+  }
+  downloadSigned(): Promise<Buffer> {
+    return Promise.resolve(Buffer.from('%PDF-signed'));
+  }
+  cancel(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+export class FakeRenderer implements DocumentRendererPort {
+  render(doc: RenderedText, footer: string): Promise<Buffer> {
+    return Promise.resolve(
+      Buffer.from(
+        `%PDF-fake ${doc.title}\n${JSON.stringify(doc.sections)}\n${footer}`,
+      ),
+    );
+  }
+  merge(pdfs: Buffer[]): Promise<Buffer> {
+    return Promise.resolve(
+      Buffer.concat([Buffer.from('%PDF-pack\n'), ...pdfs]),
+    );
   }
 }

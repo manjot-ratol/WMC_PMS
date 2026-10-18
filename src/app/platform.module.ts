@@ -9,6 +9,7 @@ import { CacheModule } from '../infrastructure/cache/cache.module';
 import { DigioModule } from '../infrastructure/partners/digio/digio.module';
 import { PersistenceModule } from '../infrastructure/persistence/persistence.module';
 import { StorageModule } from '../infrastructure/storage/storage.module';
+import { DocumentsModule } from '../infrastructure/documents/documents.module';
 
 /** Cross-cutting modules shared by the api and worker processes. */
 @Module({
@@ -23,6 +24,7 @@ import { StorageModule } from '../infrastructure/storage/storage.module';
     AuthModule,
     DigioModule,
     StorageModule,
+    DocumentsModule,
   ],
 })
 export class PlatformModule {}

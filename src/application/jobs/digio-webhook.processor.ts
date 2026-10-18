@@ -16,6 +16,20 @@ import {
 } from '../ports/kyc.repository.port';
 import type { DigioWebhookEnvelope } from '../integrations/digio-webhook.service';
 import { POLL_JOB } from './kyc-status-poll.processor';
+import { SIGNING_POLL_JOB } from './signing-status.processor';
+import {
+  isRegistryRegression,
+  mapKraStatus,
+} from '../../domain/account-opening/account-opening';
+import {
+  ACCOUNT_OPENING_REPOSITORY,
+  type AccountOpeningRepositoryPort,
+} from '../ports/account-opening.repository.port';
+import { CLOCK, type ClockPort } from '../ports/clock.port';
+import {
+  SIGNING_REPOSITORY,
+  type SigningRepositoryPort,
+} from '../ports/signing.repository.port';
 
 export interface WebhookJobPayload {
   inboxId: string;
@@ -37,6 +51,10 @@ export class DigioWebhookProcessor extends BaseProcessor<WebhookJobPayload> {
     private readonly sessions: KycSessionRepositoryPort,
     @Inject(JOB_PUBLISHER) private readonly jobs: JobPublisherPort,
     @Inject(AUDIT) private readonly audit: AuditPort,
+    @Inject(SIGNING_REPOSITORY) private readonly signing: SigningRepositoryPort,
+    @Inject(ACCOUNT_OPENING_REPOSITORY)
+    private readonly accounts: AccountOpeningRepositoryPort,
+    @Inject(CLOCK) private readonly clock: ClockPort,
   ) {
     super(store);
     this.logger = logger.child('DigioWebhookProcessor');
@@ -72,11 +90,33 @@ export class DigioWebhookProcessor extends BaseProcessor<WebhookJobPayload> {
             providerRequestId,
           });
         }
+      } else if (findSignDocumentId(body)) {
+        const providerDocumentId = findSignDocumentId(body)!;
+        const session =
+          await this.signing.findByProviderRequestId(providerDocumentId);
+        if (session) {
+          await this.jobs.publish(
+            QUEUES.SIGNING,
+            SIGNING_POLL_JOB,
+            { signingSessionId: session.id },
+            { jobId: `${session.id}-wh-${row.eventKey}` },
+          );
+          await this.audit.append({
+            actorType: 'PARTNER',
+            actorId: 'digio',
+            action: 'webhook.sign_event',
+            aggregateType: 'application',
+            aggregateId: session.applicationId,
+            details: { event: body.event, providerDocumentId },
+          });
+        } else {
+          this.logger.warn('webhook.unknown_sign_document', {
+            event: body.event,
+            providerDocumentId,
+          });
+        }
       } else if (body.entities?.includes('kra_register')) {
-        // Phase 6 consumes these; keep the inbox row as the durable record.
-        this.logger.info('webhook.kra_register_received', {
-          event: body.event,
-        });
+        await this.applyKraUpdate(body);
       } else {
         this.logger.info('webhook.unhandled', {
           event: body.event,
@@ -92,6 +132,60 @@ export class DigioWebhookProcessor extends BaseProcessor<WebhookJobPayload> {
       throw err;
     }
   }
+
+  /** KRA.PAN.STATUS.UPDATE: correlate by request_id / client_reference_id; never regress a submission. */
+  private async applyKraUpdate(body: DigioWebhookEnvelope): Promise<void> {
+    const k = (body.payload?.kra_register ?? {}) as {
+      request_id?: string;
+      client_reference_id?: string;
+      status?: string;
+    };
+    const submission = await this.accounts.findSubmissionByReference({
+      providerRequestId: k.request_id,
+      clientReferenceId: k.client_reference_id,
+    });
+    if (!submission) {
+      this.logger.warn('webhook.kra_register_unknown', { event: body.event });
+      return;
+    }
+    const next = mapKraStatus(k.status);
+    const regression = isRegistryRegression(submission.status, next);
+    if (!regression) {
+      await this.accounts.updateSubmission({
+        ...submission,
+        status: next,
+        lastProviderStatus: k.status,
+        updatedAt: this.clock.now(),
+      });
+    }
+    await this.audit.append({
+      actorType: 'PARTNER',
+      actorId: 'digio',
+      action: regression
+        ? 'webhook.kra_register_regression_ignored'
+        : 'webhook.kra_register_applied',
+      aggregateType: 'application',
+      aggregateId: submission.applicationId,
+      details: {
+        submissionId: submission.id,
+        from: submission.status,
+        to: next,
+      },
+    });
+  }
+}
+
+/** DigiSign document ids start with DID; look through every entity object for one. */
+export function findSignDocumentId(
+  body: DigioWebhookEnvelope,
+): string | undefined {
+  for (const value of Object.values(body.payload ?? {})) {
+    if (value && typeof value === 'object') {
+      const id = (value as { id?: unknown }).id;
+      if (typeof id === 'string' && id.startsWith('DID')) return id;
+    }
+  }
+  return undefined;
 }
 
 /** DigiStudio request ids start with KID; look through every entity object for one. */

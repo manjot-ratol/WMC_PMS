@@ -6,6 +6,7 @@ import { cryptoConfig } from './crypto.config';
 import { databaseConfig } from './database.config';
 import { resetEnvCache, validateEnv } from './env.validation';
 import { partnersConfig } from './partners.config';
+import { fundingConfig } from './funding.config';
 import { redisConfig } from './redis.config';
 import { storageConfig } from './storage.config';
 
@@ -27,6 +28,7 @@ import { storageConfig } from './storage.config';
         authConfig,
         cryptoConfig,
         partnersConfig,
+        fundingConfig,
       ],
     }),
   ],

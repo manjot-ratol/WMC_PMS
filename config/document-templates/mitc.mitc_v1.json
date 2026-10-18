@@ -1,0 +1,21 @@
+{
+  "type": "MITC",
+  "version": "mitc_v1",
+  "title": "Most Important Terms and Conditions",
+  "sections": [
+    {
+      "heading": "Client",
+      "paragraphs": [
+        "Name: {{identity.legalName}} | PAN: {{identity.panMasked}} | Date of birth: {{identity.dateOfBirth}}",
+        "Application version {{meta.applicationVersion}} | Snapshot {{meta.snapshotId}} | Document pack version {{meta.documentPackVersion}}"
+      ]
+    },
+    {
+      "heading": "Most important terms and conditions",
+      "paragraphs": [
+        "PLACEHOLDER_PENDING_COMPLIANCE. Summary of the key terms: nature of service, fees and charges, risks, grievance redressal, exit terms.",
+        "Minimum investment: INR {{eligibility.intendedInvestmentInr}}. Nomination: {{nomination.choice}}."
+      ]
+    }
+  ]
+}

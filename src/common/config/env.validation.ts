@@ -57,6 +57,12 @@ export class EnvSchema {
   @Transform(toInt) @IsInt() @Min(1000) DIGIO_TIMEOUT_MS = 30000;
   @IsOptional() @IsString() DIGIO_WEBHOOK_SECRET = '';
   @IsString() DIGIO_KYC_TEMPLATE_NAME = 'PMS_KYC_V1';
+  @IsString() DIGIO_ESIGN_SIGN_TYPE = 'aadhaar';
+  @Transform(toInt) @IsInt() @Min(1) DIGIO_ESIGN_EXPIRE_DAYS = 10;
+  @IsString() FUNDING_BENEFICIARY_NAME = 'PLACEHOLDER PMS POOL ACCOUNT';
+  @IsString() FUNDING_BENEFICIARY_ACCOUNT_NUMBER = '000000000000';
+  @IsString() FUNDING_BENEFICIARY_IFSC = 'XXXX0000000';
+  @IsString() FUNDING_BENEFICIARY_BANK_NAME = 'PLACEHOLDER BANK';
   @Transform(toInt) @IsInt() @Min(60) UPLOAD_URL_TTL_SECONDS = 300;
 
   @IsOptional() @IsString() TRACKWIZZ_BASE_URL = '';

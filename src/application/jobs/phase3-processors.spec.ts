@@ -15,6 +15,8 @@ import {
   FixedClock,
   SeqIds,
   silentLogger,
+  FakeSigning,
+  FakeAccountOpening,
 } from '../../../test/support/fakes';
 import { CorrelationStore } from '../../common/correlation/correlation.store';
 import {
@@ -176,6 +178,9 @@ function build() {
     d.sessions,
     d.jobs,
     d.audit,
+    new FakeSigning(),
+    new FakeAccountOpening(),
+    new FixedClock(),
   );
   const ingress = new DigioWebhookService(
     d.inbox,

@@ -31,6 +31,18 @@ import {
   SUITABILITY_RULEBOOK,
   loadSuitabilityRulebook,
 } from '../domain/suitability/suitability';
+import {
+  ACCOUNT_OPENING_RULEBOOK,
+  loadAccountOpeningRulebook,
+} from '../domain/account-opening/account-opening';
+import {
+  ACTIVATION_RULEBOOK,
+  loadActivationRulebook,
+} from '../domain/activation/activation';
+import {
+  FUNDING_RULEBOOK,
+  loadFundingRulebook,
+} from '../domain/funding/funding';
 
 /** Versioned configuration loaded once per process. */
 export const KycRelianceRulebookProviders: Provider[] = [
@@ -60,4 +72,10 @@ export const KycRelianceRulebookProviders: Provider[] = [
     provide: DOCUMENT_PACK_RULEBOOK,
     useFactory: () => loadDocumentPackRulebook(),
   },
+  {
+    provide: ACCOUNT_OPENING_RULEBOOK,
+    useFactory: () => loadAccountOpeningRulebook(),
+  },
+  { provide: FUNDING_RULEBOOK, useFactory: () => loadFundingRulebook() },
+  { provide: ACTIVATION_RULEBOOK, useFactory: () => loadActivationRulebook() },
 ];

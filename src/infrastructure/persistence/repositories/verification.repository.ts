@@ -7,8 +7,10 @@ import type {
 import type {
   TaskRecord,
   TaskRepositoryPort,
+  TaskResponseRecord,
   VerificationRepositoryPort,
 } from '../../../application/ports/verification.repository.port';
+import { FieldCipher } from '../../../common/crypto/field-cipher';
 import type {
   AdditionalVerification,
   VerificationStatus,
@@ -112,7 +114,47 @@ function toDomain(r: Row): AdditionalVerification {
 
 @Injectable()
 export class TaskRepository implements TaskRepositoryPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cipher: FieldCipher,
+  ) {}
+  async findById(
+    id: string,
+    tx?: TransactionContext,
+  ): Promise<TaskRecord | null> {
+    const r = await clientOf(this.prisma, tx).task.findUnique({
+      where: { id },
+    });
+    return r ? toTask(r) : null;
+  }
+  async update(t: TaskRecord, tx?: TransactionContext): Promise<void> {
+    await clientOf(this.prisma, tx).task.update({
+      where: { id: t.id },
+      data: {
+        status: t.status,
+        details: (t.details ?? undefined) as Prisma.InputJsonValue | undefined,
+        resolvedAt: t.resolvedAt ?? null,
+      },
+    });
+  }
+  async createResponse(
+    r: TaskResponseRecord,
+    tx?: TransactionContext,
+  ): Promise<void> {
+    await clientOf(this.prisma, tx).taskResponse.create({
+      data: {
+        id: r.id,
+        taskId: r.taskId,
+        applicationId: r.applicationId,
+        responseType: r.responseType,
+        documentIds: r.documentIds,
+        text: r.text
+          ? new Uint8Array(this.cipher.encryptToBuffer(r.text))
+          : null,
+        submittedAt: r.submittedAt,
+      },
+    });
+  }
   async create(t: TaskRecord, tx?: TransactionContext): Promise<void> {
     await clientOf(this.prisma, tx).task.create({
       data: {
@@ -133,14 +175,18 @@ export class TaskRepository implements TaskRepositoryPort {
       where: { applicationId, status: { not: 'RESOLVED' } },
       orderBy: { createdAt: 'asc' },
     });
-    return rows.map((r: TaskRow) => ({
-      id: r.id,
-      applicationId: r.applicationId,
-      category: r.category,
-      status: r.status as TaskRecord['status'],
-      details: (r.details ?? undefined) as Record<string, unknown> | undefined,
-      createdAt: r.createdAt,
-      resolvedAt: r.resolvedAt ?? undefined,
-    }));
+    return rows.map(toTask);
   }
+}
+
+function toTask(r: TaskRow): TaskRecord {
+  return {
+    id: r.id,
+    applicationId: r.applicationId,
+    category: r.category,
+    status: r.status as TaskRecord['status'],
+    details: (r.details ?? undefined) as Record<string, unknown> | undefined,
+    createdAt: r.createdAt,
+    resolvedAt: r.resolvedAt ?? undefined,
+  };
 }

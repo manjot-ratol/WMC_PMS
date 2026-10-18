@@ -1,0 +1,22 @@
+{
+  "type": "PMS_AGREEMENT",
+  "version": "agreement_v1",
+  "title": "Portfolio Management Services Agreement",
+  "sections": [
+    {
+      "heading": "Client",
+      "paragraphs": [
+        "Name: {{identity.legalName}} | PAN: {{identity.panMasked}} | Date of birth: {{identity.dateOfBirth}}",
+        "Application version {{meta.applicationVersion}} | Snapshot {{meta.snapshotId}} | Document pack version {{meta.documentPackVersion}}"
+      ]
+    },
+    {
+      "heading": "Agreement",
+      "paragraphs": [
+        "PLACEHOLDER_PENDING_COMPLIANCE. Agreement between the client and the portfolio manager per Schedule IV of the SEBI (Portfolio Managers) Regulations, 2020.",
+        "Bank account for funds: {{bank.accountMasked}} ({{bank.ifsc}}), holder {{bank.holderName}}.",
+        "Tax residencies declared: {{declarations.taxResidencyCountries}}; PEP declaration: {{declarations.pepDeclaration}}."
+      ]
+    }
+  ]
+}

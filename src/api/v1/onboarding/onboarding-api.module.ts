@@ -6,6 +6,10 @@ import { EmailChallengeController } from './email-challenge.controller';
 import { KycController } from './kyc.controller';
 import { ProfileBankNominationController } from './phase4.controller';
 import { SuitabilityFeesReviewController } from './phase5.controller';
+import {
+  FundingController,
+  SigningProcessingController,
+} from './phase6.controller';
 
 @Module({
   imports: [ApplicationServicesModule],
@@ -16,6 +20,8 @@ import { SuitabilityFeesReviewController } from './phase5.controller';
     DocumentsController,
     ProfileBankNominationController,
     SuitabilityFeesReviewController,
+    SigningProcessingController,
+    FundingController,
   ],
 })
 export class OnboardingApiModule {}

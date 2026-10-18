@@ -1,0 +1,64 @@
+{
+  "mappings": [
+    {
+      "name": "digio-esign-upload",
+      "request": { "method": "POST", "urlPath": "/digio/v2/client/document/uploadpdf" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "transformers": ["response-template"],
+        "jsonBody": {
+          "id": "DIDC{{randomValue length=16 type='ALPHANUMERIC' uppercase=true}}",
+          "is_agreement": true,
+          "agreement_type": "outbound",
+          "agreement_status": "requested",
+          "file_name": "{{jsonPath request.body '$.file_name'}}",
+          "signing_parties": [{ "identifier": "{{jsonPath request.body '$.signers[0].identifier'}}", "name": "{{jsonPath request.body '$.signers[0].name'}}", "status": "requested", "type": "signatory", "signature_type": "aadhaar" }],
+          "access_token": { "id": "GWT{{randomValue length=24 type='ALPHANUMERIC'}}", "entityId": "DIDC", "validTill": "2099-12-31T00:00:00" }
+        }
+      }
+    },
+    {
+      "name": "digio-esign-get-completed",
+      "priority": 5,
+      "request": { "method": "GET", "urlPathPattern": "/digio/v2/client/document/DIDC[A-Z0-9]+" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "transformers": ["response-template"],
+        "jsonBody": {
+          "id": "{{request.pathSegments.[4]}}",
+          "agreement_status": "completed",
+          "file_name": "pack.pdf",
+          "signing_parties": [{ "identifier": "sit@example.com", "name": "SIT Signer", "status": "signed", "type": "signatory", "signature_type": "aadhaar" }]
+        }
+      }
+    },
+    {
+      "name": "digio-esign-get-requested",
+      "priority": 5,
+      "request": { "method": "GET", "urlPathPattern": "/digio/v2/client/document/DIDR[A-Z0-9]+" },
+      "response": {
+        "status": 200,
+        "headers": { "Content-Type": "application/json" },
+        "transformers": ["response-template"],
+        "jsonBody": { "id": "{{request.pathSegments.[4]}}", "agreement_status": "requested", "signing_parties": [{ "identifier": "sit@example.com", "status": "requested" }] }
+      }
+    },
+    {
+      "name": "digio-esign-download",
+      "request": { "method": "GET", "urlPath": "/digio/v2/client/document/download" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/pdf" }, "base64Body": "JVBERi0xLjQKJSBTSVQgc2lnbmVkIHBhY2sgcGxhY2Vob2xkZXIKMSAwIG9iago8PC9UeXBlL0NhdGFsb2c+PgplbmRvYmoKdHJhaWxlcgo8PC9Sb290IDEgMCBSPj4KJSVFT0YK" }
+    },
+    {
+      "name": "digio-esign-cancel",
+      "request": { "method": "POST", "urlPathPattern": "/digio/v2/client/document/DID[A-Z0-9]+/cancel" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "jsonBody": { "agreement_status": "requested", "cancel_reason": "cancelled" } }
+    },
+    {
+      "name": "digio-ckyc-register",
+      "request": { "method": "POST", "urlPath": "/digio/v3/client/kyc/ckyc/register" },
+      "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "transformers": ["response-template"], "jsonBody": { "request_id": "CKYC{{randomValue length=12 type='NUMERIC'}}", "status": "UPLOAD_PENDING" } }
+    }
+  ]
+}

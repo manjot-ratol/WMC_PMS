@@ -1,0 +1,21 @@
+{
+  "type": "DISCLOSURE",
+  "version": "disclosure_v1",
+  "title": "Disclosure Document",
+  "sections": [
+    {
+      "heading": "Client",
+      "paragraphs": [
+        "Name: {{identity.legalName}} | PAN: {{identity.panMasked}} | Date of birth: {{identity.dateOfBirth}}",
+        "Application version {{meta.applicationVersion}} | Snapshot {{meta.snapshotId}} | Document pack version {{meta.documentPackVersion}}"
+      ]
+    },
+    {
+      "heading": "Disclosure",
+      "paragraphs": [
+        "PLACEHOLDER_PENDING_COMPLIANCE. This disclosure document describes the portfolio manager, its services, risks, fees and regulatory status as required under the SEBI (Portfolio Managers) Regulations, 2020.",
+        "Investment approach confirmed: {{approach.approachCode}} (assessed profile {{suitability.riskProfile}})."
+      ]
+    }
+  ]
+}

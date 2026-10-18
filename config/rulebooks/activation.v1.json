@@ -1,0 +1,9 @@
+{
+  "version": "activation_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: activation gates are illustrative; Compliance confirms the effective set.",
+  "requiredSteps": ["KYC", "DECLARATIONS", "BANK", "NOMINATION", "SUITABILITY", "APPROACH", "ACKNOWLEDGEMENTS", "REVIEW", "SIGNING", "ACCOUNT_OPENING"],
+  "requireScreeningProceed": true,
+  "requireAmlProceed": true,
+  "blockingTaskCategories": ["SOURCE_OF_FUNDS_EVIDENCE", "FATCA_ADDITIONAL_INFO", "BANK_PROOF", "CLARIFICATION", "PEP_EDD", "FUNDING_REVIEW"],
+  "blockingRegistryStatuses": ["REJECTED"]
+}

@@ -4,6 +4,7 @@ export * from './config.module';
 export * from './crypto.config';
 export * from './database.config';
 export * from './env.validation';
+export * from './funding.config';
 export * from './partners.config';
 export * from './redis.config';
 export * from './storage.config';

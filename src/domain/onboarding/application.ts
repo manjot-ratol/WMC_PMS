@@ -4,7 +4,12 @@ import type { ApplicationStep } from './application-step';
 import { JOURNEY_VERSION, type Screen, type StepId } from './screens';
 
 export type ApplicationStatus =
-  'IN_PROGRESS' | 'ASSISTED' | 'NOT_ELIGIBLE' | 'WITHDRAWN';
+  | 'IN_PROGRESS'
+  | 'ASSISTED'
+  | 'NOT_ELIGIBLE'
+  | 'WITHDRAWN'
+  | 'SUBMITTED'
+  | 'ACTIVE';
 
 export interface OnboardingApplication {
   readonly id: string;

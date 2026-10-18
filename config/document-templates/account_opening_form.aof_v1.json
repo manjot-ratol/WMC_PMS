@@ -1,0 +1,21 @@
+{
+  "type": "ACCOUNT_OPENING_FORM",
+  "version": "aof_v1",
+  "title": "Account Opening Form",
+  "sections": [
+    {
+      "heading": "Client",
+      "paragraphs": [
+        "Name: {{identity.legalName}} | PAN: {{identity.panMasked}} | Date of birth: {{identity.dateOfBirth}}",
+        "Application version {{meta.applicationVersion}} | Snapshot {{meta.snapshotId}} | Document pack version {{meta.documentPackVersion}}"
+      ]
+    },
+    {
+      "heading": "Account opening particulars",
+      "paragraphs": [
+        "Occupation: {{profile.occupation}} | Income band: {{profile.annualIncomeBand}} | Source of funds: {{profile.sourceOfFunds}}",
+        "KYC status: {{kyc.status}} via {{kyc.route}} | Nominees: {{nomination.nomineeCount}}"
+      ]
+    }
+  ]
+}

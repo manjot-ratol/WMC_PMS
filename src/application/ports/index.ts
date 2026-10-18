@@ -34,3 +34,7 @@ export * from './profile.repository.port';
 export * from './suitability.repository.port';
 export * from './fee.repository.port';
 export * from './review.repository.port';
+export * from './signing.repository.port';
+export * from './account-opening.repository.port';
+export * from './funding.repository.port';
+export * from './activation.repository.port';

@@ -1,0 +1,21 @@
+{
+  "type": "FEE_ANNEXURE",
+  "version": "fee_annexure_v1",
+  "title": "Fee Annexure",
+  "sections": [
+    {
+      "heading": "Client",
+      "paragraphs": [
+        "Name: {{identity.legalName}} | PAN: {{identity.panMasked}} | Date of birth: {{identity.dateOfBirth}}",
+        "Application version {{meta.applicationVersion}} | Snapshot {{meta.snapshotId}} | Document pack version {{meta.documentPackVersion}}"
+      ]
+    },
+    {
+      "heading": "Fee annexure",
+      "paragraphs": [
+        "PLACEHOLDER_PENDING_COMPLIANCE. Fee schedule applicable to investment approach {{approach.approachCode}} as illustrated to the client before acknowledgement.",
+        "The client has separately acknowledged the fee illustration and recorded a statement of understanding in their own words (pack version {{acknowledgements.documentPackVersion}})."
+      ]
+    }
+  ]
+}

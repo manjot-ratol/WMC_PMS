@@ -20,4 +20,13 @@ export const ID_PREFIX = {
   suitabilityAssessment: 'sa',
   feeIllustration: 'fi',
   reviewSnapshot: 'snap',
+  signingSession: 'ss',
+  accountOpeningRun: 'ao',
+  registrySubmission: 'rs',
+  underlyingAccount: 'ua',
+  fundingNotification: 'fn',
+  fundingReceipt: 'fr',
+  activation: 'act',
+  pmsAccount: 'pms',
+  taskResponse: 'tr',
 } as const;

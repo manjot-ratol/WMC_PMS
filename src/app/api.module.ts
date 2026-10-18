@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { HealthModule } from '../api/health/health.module';
+import { InternalApiModule } from '../api/internal/internal-api.module';
 import { AuthApiModule } from '../api/v1/auth/auth-api.module';
 import { IntegrationsApiModule } from '../api/v1/integrations/integrations-api.module';
 import { OnboardingApiModule } from '../api/v1/onboarding/onboarding-api.module';
@@ -20,6 +21,7 @@ import { PlatformModule } from './platform.module';
     AuthApiModule,
     OnboardingApiModule,
     IntegrationsApiModule,
+    InternalApiModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: ErrorEnvelopeFilter },
