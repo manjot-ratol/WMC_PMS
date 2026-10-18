@@ -2059,7 +2059,7 @@
   },
   {
    "key": "internal_token",
-   "value": "<INTERNAL_SERVICE_TOKEN from .env>"
+   "value": "dev-internal-token"
   },
   {
    "key": "reviewer_id",
