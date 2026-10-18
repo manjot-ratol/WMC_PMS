@@ -83,3 +83,11 @@ Central UAT credentials are supplied by those vendors. Put them in `.env`.
 - Backend analytics events are written to `analytics_outbox` with allowlisted properties only and shipped by the worker's `analytics-dispatch` tick to CleverTap (`POST /1/upload`) when `CLEVERTAP_ENABLED=true`; otherwise a log sink records names and counts. The dispatcher re-applies the allowlist and logs a privacy incident for anything else.
 - MF Central CAS (`MfCentralGateway`): token → encrypt → sign → `newCasRequest` / `validateQRCode` → decrypt, exactly as the UAT collection. `MFCENTRAL_CRYPTO_MODE=remote` uses MF Central's `/api/test/*` helpers; `local` signs with the private JWK (detached RS256, `b64:false`) and uses an AES placeholder marked unverified. Connector only, no business wiring (owner decision).
 - Ignosis bank analytics: `parseIgnosisAnalytics` types the documented JSON tags (overall, account-wise, salary/EMI, loans, ABB, score, MF/equity/FD summaries, nudges). No API contract was supplied, so there is no gateway.
+
+## Local manual testing (Postman)
+
+1. Infra: `docker compose up -d` (postgres 5432, redis 6380, minio 9000/9001, wiremock 8080, mailpit 8025).
+2. Processes: `npm run build`, then `npm run start:api`, `npm run start:worker` and `npm run mock:trackwizz` (TrackWizz stand-in on 8099). `.env` points Digio at WireMock (`http://localhost:8080/digio`) and TrackWizz at the mock; switch the `DIGIO_*` / `TRACKWIZZ_*` values back to the sandbox once real credentials arrive.
+3. Import `postman/wmc_pms.postman_collection.json` and set `internal_token` to `INTERNAL_SERVICE_TOKEN` from `.env`. Folders follow the screens (01–25), then internal feeds, reviewer and simulated webhooks; test scripts capture ids and tokens into collection variables as you go.
+4. OTPs are never logged. Use `GET /internal/v1/dev/otps?to=<phone or email>` (service token, non-production only; wired in the collection as "Dev: read last … OTP"), or Mailpit for email.
+5. Mock data: PAN `ABJP?####J` → existing KRA record (REUSE route), `NORP?####X` → no record (FRESH route), use a fresh PAN per application; bank account `9999…` → VERIFIED, `5555…` → REVIEW_REQUIRED, `1111…` → ACTION_REQUIRED; the eSign stub reports completion on the first poll, so signing executes within ~30 s; accounts and receipts come from the internal feeds folder.

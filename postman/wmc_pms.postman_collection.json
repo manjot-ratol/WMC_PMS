@@ -1,10 +1,1953 @@
 {
  "info": {
-  "name": "WMC PMS Onboarding - screens 01-25",
-  "_postman_id": "7c1f1d3e-5a6b-4b0f-9f6e-wmcpms0000002",
-  "description": "Runs the onboarding journey against the local backend (`make up` + `npm run start:api`).\n\nOTP delivery locally: the SMS sender only logs a masked destination, so read the phone OTP from the API log at debug level (`LOG_LEVEL=debug`, event `sms.sent` is masked; the code is NOT logged). For local testing use the Mailpit UI (http://localhost:8025) for email codes, and for phone codes run with `APP_ENV=local` and read the code from the MessageSpy via the SIT harness, or use the SIT suite (`make sit`) which drives the whole journey automatically.\n\nVariables chain automatically via test scripts: preauth_token, challenge_id, session_token, application_id, email_challenge_id.",
-  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  "name": "WMC PMS Onboarding \u2014 screens 01-25",
+  "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+  "description": "Run top to bottom. OTPs: phone OTP from the API log (sms.sent), email OTP from Mailpit http://localhost:8025. Partners are mocked: Digio via WireMock (8080), TrackWizz via the local mock (8099)."
  },
+ "item": [
+  {
+   "name": "00 \u00b7 Health",
+   "description": "Infra: postgres 5432, redis 6380, minio 9000 (console 9001), wiremock 8080, mailpit 8025, trackwizz mock 8099.",
+   "item": [
+    {
+     "name": "GET /health",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{baseUrl}}/health",
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "GET /health/ready",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{baseUrl}}/health/ready",
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Swagger (open in browser)",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{baseUrl}}/docs",
+      "description": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "01-02 \u00b7 Phone OTP",
+   "description": "",
+   "item": [
+    {
+     "name": "01 Create phone challenge",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/auth/phone/challenges",
+      "description": "Response 202. The OTP is NOT in the response: read it from the API log line `sms.sent` (LogSmsSender) and put it in the `otp` variable.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"purpose\": \"PMS_ONBOARDING\",\n  \"privacy_notice_version\": \"privacy_v1\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));",
+         "const b = pm.response.json(); if (b.challenge_id!==undefined) pm.collectionVariables.set('challenge_id', b.challenge_id); if (b.preauth_token!==undefined) pm.collectionVariables.set('preauth_token', b.preauth_token);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Dev: read last phone OTP \u2192 sets {{otp}}",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/dev/otps?to={{phone}}",
+      "description": "Local/test only (404 in production). Reads the OTP the API just 'sent'."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.collectionVariables.set('otp', pm.response.json().otp);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "02 Resend phone OTP",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{preauth_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/resend",
+      "description": "429 inside the 30 s cooldown.",
+      "body": {
+       "mode": "raw",
+       "raw": "{}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    },
+    {
+     "name": "02 Verify phone OTP",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{preauth_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/verify",
+      "description": "Creates the application and the session. Wrong OTP \u2192 422 OTP_INVALID_OR_EXPIRED.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"otp\": \"{{otp}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b.session_token!==undefined) pm.collectionVariables.set('session_token', b.session_token); if (b.application_id!==undefined) pm.collectionVariables.set('application_id', b.application_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Resume: GET application",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}",
+      "description": "Current status, next_screen, completed steps, version."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "03-04 \u00b7 Email OTP",
+   "description": "",
+   "item": [
+    {
+     "name": "03 Create email challenge",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges",
+      "description": "OTP is delivered to Mailpit: http://localhost:8025 (also in the API log).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"email\": \"{{email}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));",
+         "const b = pm.response.json(); if (b.challenge_id!==undefined) pm.collectionVariables.set('email_challenge_id', b.challenge_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Dev: read last email OTP \u2192 sets {{email_otp}}",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/dev/otps?to={{email}}",
+      "description": "Also visible in Mailpit at http://localhost:8025."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "pm.collectionVariables.set('email_otp', pm.response.json().otp);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "04 Verify email OTP",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/verify",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"otp\": \"{{email_otp}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "04 Resend email OTP",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/resend",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "05 \u00b7 Eligibility",
+   "description": "",
+   "item": [
+    {
+     "name": "05 Evaluate eligibility",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/eligibility",
+      "description": "Min investment 25,00,000 (eligibility.v1.json). NRI / joint / non-individual / DISTRIBUTOR \u2192 ASSISTED_REQUIRED.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"customer_type\": \"INDIVIDUAL\",\n  \"residential_status\": \"RESIDENT\",\n  \"intended_investment_inr\": 5000000,\n  \"distribution_route\": \"DIRECT\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "06-08 \u00b7 PAN identity + KYC (KRA via WireMock)",
+   "description": "",
+   "item": [
+    {
+     "name": "06 Submit identity",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/identity-verifications",
+      "description": "WireMock KRA: PAN matching ABJP?####J \u2192 existing KRA record (route REUSE); NORP?####X \u2192 no record (route FRESH). Use a NEW PAN per application (duplicate PAN goes to assisted review).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"pan\": \"{{pan}}\",\n  \"legal_name\": \"Vinod Kumar Singh\",\n  \"date_of_birth\": \"1955-08-16\",\n  \"permission_version\": \"kyc_fetch_v1\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "07 KYC status (poll until not PROCESSING)",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc",
+      "description": "Worker runs the KRA lookup; usually ready within a few seconds."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b.kyc_record_version!==undefined) pm.collectionVariables.set('kyc_record_version', b.kyc_record_version); if (b.operation_id!==undefined) pm.collectionVariables.set('operation_id', b.operation_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "08 Confirm existing KYC details",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/confirmation",
+      "description": "Only when 07 returned EXISTING_RECORD_AVAILABLE. Stale version \u2192 409.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"kyc_record_version\": \"{{kyc_record_version}}\",\n  \"details_confirmed\": true,\n  \"changes\": {}\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "09-11 \u00b7 Fresh KYC, documents, IPV (only for route FRESH)",
+   "description": "",
+   "item": [
+    {
+     "name": "09 Create digital KYC session",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/sessions",
+      "description": "DigiStudio stub returns an SDK token; the worker polls status until approved.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"method\": \"DIGITAL_DOCUMENTS\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('201', () => pm.response.to.have.status(201));",
+         "const b = pm.response.json(); if (b.session_id!==undefined) pm.collectionVariables.set('kyc_session_id', b.session_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "10 Authorise document upload",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/document-uploads",
+      "description": "Then PUT the file bytes to upload_url (MinIO presigned).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"requirement_id\": \"ADDRESS_PROOF\",\n  \"content_type\": \"application/pdf\",\n  \"size_bytes\": 102400\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b.upload_id!==undefined) pm.collectionVariables.set('upload_id', b.upload_id); if (b.upload_url!==undefined) pm.collectionVariables.set('upload_url', b.upload_url);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "10 Submit document",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/documents",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"requirement_id\": \"ADDRESS_PROOF\",\n  \"document_type\": \"AADHAAR\",\n  \"files\": [\n    {\n      \"upload_id\": \"{{upload_id}}\",\n      \"side\": \"FRONT\"\n    }\n  ]\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));",
+         "const b = pm.response.json(); if (b.document_id!==undefined) pm.collectionVariables.set('document_id', b.document_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "11 Additional verification (selfie IPV)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/additional-verifications",
+      "description": "Returns EXEMPT when the KRA record already carries the IPV flag.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"verification_type\": \"SELFIE_LIVENESS\",\n  \"selfie_document_id\": \"{{document_id}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "12-13 \u00b7 Profile and declarations",
+   "description": "",
+   "item": [
+    {
+     "name": "12 Save profile",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/profile",
+      "description": "Start with profile_version 0. Re-saving with the old version \u2192 409.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"occupation\": \"PRIVATE_SECTOR\",\n  \"annual_income_band\": \"INR_10L_25L\",\n  \"source_of_funds\": [\n    \"SALARY\"\n  ],\n  \"profile_version\": \"{{profile_version}}\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b.profile_version!==undefined) pm.collectionVariables.set('profile_version', b.profile_version);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "13 Save declarations",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/declarations",
+      "description": "Indian TIN must equal the PAN. Queues TrackWizz screening + AML (worker, mock on 8099).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"tax_residencies\": [\n    {\n      \"country\": \"IN\",\n      \"tin\": \"{{pan}}\"\n    }\n  ],\n  \"pep_declaration\": \"NOT_PEP\",\n  \"declaration_version\": \"declarations_v1\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "14-16 \u00b7 Bank and nomination",
+   "description": "",
+   "item": [
+    {
+     "name": "14 Start bank verification",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/bank-verifications",
+      "description": "WireMock bank stub by account prefix: 9999\u2026 \u2192 VERIFIED (score 92); 5555\u2026 \u2192 REVIEW_REQUIRED (score 55); 1111\u2026 \u2192 ACTION_REQUIRED (invalid account).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"account_number\": \"999912345678\",\n  \"account_number_confirmation\": \"999912345678\",\n  \"ifsc\": \"HDFC0001234\",\n  \"holder_name\": \"Vinod Kumar Singh\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));",
+         "const b = pm.response.json(); if (b.verification_id!==undefined) pm.collectionVariables.set('bank_verification_id', b.verification_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "15 Bank verification result (poll)",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/bank-verifications/{{bank_verification_id}}",
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "16 Save nomination",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/nomination",
+      "description": "Or {\"choice\":\"OPT_OUT\",\"nominees\":[]}. CUSTOM allocations must sum to 100; minors need date_of_birth + guardian.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"choice\": \"NOMINATE\",\n  \"allocation_mode\": \"EQUAL\",\n  \"nominees\": [\n    {\n      \"full_name\": \"Asha Singh\",\n      \"relationship\": \"SPOUSE\",\n      \"is_minor\": false\n    }\n  ]\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "17-20 \u00b7 Suitability, approach, fees, review",
+   "description": "",
+   "item": [
+    {
+     "name": "17 Submit questionnaire",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/suitability-assessments",
+      "description": "Partial answers \u2192 INCOMPLETE with missing_question_ids. LONG_TERM_GROWTH + UNDER_1_YEAR \u2192 422 contradictory.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"questionnaire_version\": \"suitability_v1\",\n  \"answers\": [\n    {\n      \"question_id\": \"OBJECTIVE\",\n      \"answer_id\": \"LONG_TERM_GROWTH\"\n    },\n    {\n      \"question_id\": \"HORIZON\",\n      \"answer_id\": \"FIVE_YEARS_PLUS\"\n    },\n    {\n      \"question_id\": \"LIQUIDITY\",\n      \"answer_id\": \"NONE_EXPECTED\"\n    },\n    {\n      \"question_id\": \"EXPERIENCE\",\n      \"answer_id\": \"DIRECT_EQUITY\"\n    },\n    {\n      \"question_id\": \"RISK_CAPACITY\",\n      \"answer_id\": \"LOSS_UP_TO_25\"\n    }\n  ]\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b.assessment_id!==undefined) pm.collectionVariables.set('assessment_id', b.assessment_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "18 Confirm investment approach",
+     "request": {
+      "method": "PUT",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/investment-approach",
+      "description": "Only approaches permitted by the assessed band (suitability.v1.json). CONSERVATIVE_INCOME on an AGGRESSIVE profile \u2192 422.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"assessment_id\": \"{{assessment_id}}\",\n  \"assessment_version\": 1,\n  \"approach_code\": \"EQUITY_GROWTH\",\n  \"confirmed\": true\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "19 Fee illustration",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/fee-illustrations",
+      "description": "Scenarios: RETURN_NEGATIVE_10, RETURN_FLAT, RETURN_PLUS_10, RETURN_PLUS_20.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"approach_code\": \"EQUITY_GROWTH\",\n  \"fee_schedule_version\": \"fees_v1\",\n  \"scenario_code\": \"RETURN_PLUS_10\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "19 Record acknowledgements",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/acknowledgements",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"document_pack_version\": 1,\n  \"acknowledgements\": [\n    {\n      \"document_type\": \"DISCLOSURE\",\n      \"document_version\": \"disclosure_v1\",\n      \"acknowledged\": true\n    },\n    {\n      \"document_type\": \"MITC\",\n      \"document_version\": \"mitc_v1\",\n      \"acknowledged\": true\n    }\n  ],\n  \"fee_understanding_note\": \"I understand the management and performance fees apply to my portfolio each year.\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "20 Review summary",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/review",
+      "description": "Masked sections + the application_version to echo back."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b.application_version!==undefined) pm.collectionVariables.set('application_version', b.application_version);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "20 Confirm review",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/review-confirmations",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"application_version\": \"{{application_version}}\",\n  \"document_pack_version\": 1,\n  \"details_confirmed\": true\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b.snapshot_id!==undefined) pm.collectionVariables.set('snapshot_id', b.snapshot_id);"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "21-22 \u00b7 Signing and processing",
+   "description": "",
+   "item": [
+    {
+     "name": "21 Create signing session",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/signing-sessions",
+      "description": "Renders the PDF pack (MinIO bucket pms-documents, applications/<id>/packs/) and calls the Digio eSign stub. The stub reports 'completed' on the first poll, so the worker executes within ~30 s without a webhook.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"snapshot_id\": \"{{snapshot_id}}\",\n  \"document_pack_version\": 1,\n  \"signing_method\": \"AADHAAR_ESIGN\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('201', () => pm.response.to.have.status(201));",
+         "const b = pm.response.json(); if (b.signing_session_id!==undefined) pm.collectionVariables.set('signing_session_id', b.signing_session_id); if (b.provider_request_id!==undefined) pm.collectionVariables.set('provider_request_id', b.provider_request_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "21 Signing status (poll)",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/signing-sessions/{{signing_session_id}}",
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "22 Processing status",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/status",
+      "description": "After execution the account-opening job opens an ACCOUNT_SETUP task; accounts become ready through the Internal feeds folder."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "22 Respond to a task",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/tasks/{{task_id}}/responses",
+      "description": "Only for customer-action tasks (CLARIFICATION, BANK_PROOF, \u2026).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"response_type\": \"TEXT\",\n  \"text\": \"Clarification provided.\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "23-25 \u00b7 Funding and activation",
+   "description": "",
+   "item": [
+    {
+     "name": "23 Funding instructions",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/funding-instructions",
+      "description": "422 until documents are EXECUTED and both underlying accounts are READY."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b.payment_reference!==undefined) pm.collectionVariables.set('payment_reference', b.payment_reference);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "23 Funding notification",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/funding-notifications",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"funding_method\": \"BANK_TRANSFER\",\n  \"customer_transfer_reference\": \"UTR123456789\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "24 Funding status (poll)",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/funding-status",
+      "description": "Becomes RECONCILED after the receipt feed; the activation job then sets ACTIVE when every gate passes."
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "25 Completion",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/completion",
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Internal feeds (service token)",
+   "description": "",
+   "item": [
+    {
+     "name": "Underlying account READY (PMS)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/underlying-accounts",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"CUSTODIAN\",\n  \"account_type\": \"PMS_ACCOUNT\",\n  \"account_reference\": \"PMS000123\",\n  \"status\": \"READY\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Underlying account READY (DEMAT)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/underlying-accounts",
+      "description": "Both required types READY \u2192 step ACCOUNT_OPENING completes, funding instructions unlock.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"DP\",\n  \"account_type\": \"DEMAT\",\n  \"account_reference\": \"IN000123\",\n  \"status\": \"READY\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Funding receipt (matched)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/funding-receipts",
+      "description": "Matches only from the verified account, in INR, to the payment_reference from screen 23. Same provider_receipt_key twice \u2192 DUPLICATE.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"BANK\",\n  \"amount_inr\": 5000000,\n  \"currency\": \"INR\",\n  \"source_account_number\": \"999912345678\",\n  \"destination_reference\": \"{{payment_reference}}\",\n  \"value_date\": \"2026-10-18\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Re-queue account opening",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       },
+       {
+        "key": "X-Reviewer-Id",
+        "value": "{{reviewer_id}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/account-opening-runs",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"snapshot_id\": \"{{snapshot_id}}\",\n  \"document_pack_version\": 1\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Re-run screening (Job A)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       },
+       {
+        "key": "X-Reviewer-Id",
+        "value": "{{reviewer_id}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/screening-runs",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"identity_version\": 1,\n  \"screening_policy_version\": \"screening_v1\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Re-run AML risk rating (Job B)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       },
+       {
+        "key": "X-Reviewer-Id",
+        "value": "{{reviewer_id}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/aml-assessments",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"identity_version\": 1,\n  \"profile_version\": 1,\n  \"declaration_version\": 1,\n  \"policy_version\": \"aml_v1\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('202', () => pm.response.to.have.status(202));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Reviewer (service token + X-Reviewer-Id)",
+   "description": "",
+   "item": [
+    {
+     "name": "Open cases",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       },
+       {
+        "key": "X-Reviewer-Id",
+        "value": "{{reviewer_id}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/review/cases?status=OPEN&limit=50",
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b[0]) pm.collectionVariables.set('case_id', b[0].case_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Tasks",
+     "request": {
+      "method": "GET",
+      "header": [
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       },
+       {
+        "key": "X-Reviewer-Id",
+        "value": "{{reviewer_id}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/review/tasks?status=OPEN,UNDER_REVIEW",
+      "description": ""
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));",
+         "const b = pm.response.json(); if (b[0]) pm.collectionVariables.set('task_id', b[0].task_id);"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Decide case",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       },
+       {
+        "key": "X-Reviewer-Id",
+        "value": "{{reviewer_id}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/review/cases/{{case_id}}/decisions",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"decision\": \"PROCEED\",\n  \"reason\": \"Documented reason for the decision (min 10 chars).\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Accept bank evidence",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       },
+       {
+        "key": "X-Reviewer-Id",
+        "value": "{{reviewer_id}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/review/applications/{{application_id}}/bank-evidence",
+      "description": "For a 5555\u2026/1111\u2026 account (REVIEW_REQUIRED / ACTION_REQUIRED).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"verification_id\": \"{{bank_verification_id}}\",\n  \"reason\": \"Cancelled cheque verified by reviewer.\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "Resolve task",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       },
+       {
+        "key": "X-Internal-Token",
+        "value": "{{internal_token}}"
+       },
+       {
+        "key": "X-Reviewer-Id",
+        "value": "{{reviewer_id}}"
+       }
+      ],
+      "url": "{{baseUrl}}/internal/v1/review/tasks/{{task_id}}/resolution",
+      "description": "",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"resolution\": \"RESOLVED\",\n  \"reason\": \"Clarification reviewed and accepted.\"\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Webhooks (simulated Digio)",
+   "description": "",
+   "item": [
+    {
+     "name": "DigiSign DOC.SIGNED",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/integrations/digio/webhooks",
+      "description": "Checksum is computed by the pre-request script from digio_webhook_secret. Triggers an immediate status poll.",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id\": \"evt_{{$guid}}\",\n  \"event\": \"DOC.SIGNED\",\n  \"entities\": [\n    \"document\"\n  ],\n  \"payload\": {\n    \"document\": {\n      \"id\": \"{{provider_request_id}}\",\n      \"agreement_status\": \"completed\"\n    }\n  }\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "prerequest",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const secret = pm.collectionVariables.get('digio_webhook_secret');",
+         "const body = pm.request.body.raw;",
+         "pm.request.headers.upsert({ key: 'X-Digio-Checksum', value: CryptoJS.HmacSHA256(body, secret).toString(CryptoJS.enc.Hex) });"
+        ]
+       }
+      },
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "KRA.PAN.STATUS.UPDATE",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Content-Type",
+        "value": "application/json"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/integrations/digio/webhooks",
+      "description": "Correlates by request_id / client_reference_id of a registry submission (fresh-KYC route only).",
+      "body": {
+       "mode": "raw",
+       "raw": "{\n  \"id\": \"evt_{{$guid}}\",\n  \"event\": \"KRA.PAN.STATUS.UPDATE\",\n  \"entities\": [\n    \"kra_register\"\n  ],\n  \"payload\": {\n    \"kra_register\": {\n      \"request_id\": \"KRAREQ1\",\n      \"client_reference_id\": \"rs_xxx\",\n      \"status\": \"KRA_VERIFIED\",\n      \"pan_number\": \"{{pan}}\",\n      \"kra_provider\": \"CDSL\",\n      \"id\": \"x\"\n    }\n  }\n}",
+       "options": {
+        "raw": {
+         "language": "json"
+        }
+       }
+      }
+     },
+     "event": [
+      {
+       "listen": "prerequest",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "const secret = pm.collectionVariables.get('digio_webhook_secret');",
+         "const body = pm.request.body.raw;",
+         "pm.request.headers.upsert({ key: 'X-Digio-Checksum', value: CryptoJS.HmacSHA256(body, secret).toString(CryptoJS.enc.Hex) });"
+        ]
+       }
+      },
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200', () => pm.response.to.have.status(200));"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
  "variable": [
   {
    "key": "baseUrl",
@@ -12,15 +1955,23 @@
   },
   {
    "key": "phone",
-   "value": "9000000001"
+   "value": "9876543210"
   },
   {
    "key": "email",
-   "value": "customer@example.com"
+   "value": "test@example.com"
   },
   {
    "key": "otp",
-   "value": "000000"
+   "value": ""
+  },
+  {
+   "key": "email_otp",
+   "value": ""
+  },
+  {
+   "key": "pan",
+   "value": "ABJPK1234J"
   },
   {
    "key": "preauth_token",
@@ -28,6 +1979,10 @@
   },
   {
    "key": "challenge_id",
+   "value": ""
+  },
+  {
+   "key": "email_challenge_id",
    "value": ""
   },
   {
@@ -39,16 +1994,12 @@
    "value": ""
   },
   {
-   "key": "email_challenge_id",
-   "value": ""
-  },
-  {
-   "key": "pan",
-   "value": "ABJPA1234J"
-  },
-  {
    "key": "kyc_record_version",
    "value": "1"
+  },
+  {
+   "key": "operation_id",
+   "value": ""
   },
   {
    "key": "kyc_session_id",
@@ -63,15 +2014,15 @@
    "value": ""
   },
   {
+   "key": "document_id",
+   "value": ""
+  },
+  {
    "key": "profile_version",
    "value": "0"
   },
   {
    "key": "bank_verification_id",
-   "value": ""
-  },
-  {
-   "key": "document_id",
    "value": ""
   },
   {
@@ -87,11 +2038,11 @@
    "value": ""
   },
   {
-   "key": "internal_token",
-   "value": "change-me-internal-token"
+   "key": "signing_session_id",
+   "value": ""
   },
   {
-   "key": "signing_session_id",
+   "key": "provider_request_id",
    "value": ""
   },
   {
@@ -99,1343 +2050,24 @@
    "value": ""
   },
   {
+   "key": "case_id",
+   "value": ""
+  },
+  {
    "key": "payment_reference",
    "value": ""
+  },
+  {
+   "key": "internal_token",
+   "value": "<INTERNAL_SERVICE_TOKEN from .env>"
   },
   {
    "key": "reviewer_id",
    "value": "ops-1"
   },
   {
-   "key": "case_id",
-   "value": ""
-  }
- ],
- "event": [
-  {
-   "listen": "prerequest",
-   "script": {
-    "type": "text/javascript",
-    "exec": [
-     "pm.request.headers.upsert({ key: 'Idempotency-Key', value: pm.variables.replaceIn('{{$guid}}') });",
-     "pm.request.headers.upsert({ key: 'X-Correlation-ID', value: pm.variables.replaceIn('{{$guid}}') });"
-    ]
-   }
-  }
- ],
- "item": [
-  {
-   "name": "Health",
-   "item": [
-    {
-     "name": "GET /health",
-     "request": {
-      "method": "GET",
-      "url": "{{baseUrl}}/health"
-     }
-    },
-    {
-     "name": "GET /health/ready",
-     "request": {
-      "method": "GET",
-      "url": "{{baseUrl}}/health/ready"
-     }
-    }
-   ]
-  },
-  {
-   "name": "01 Phone challenge",
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('202', () => pm.response.to.have.status(202));",
-       "const b = pm.response.json(); pm.collectionVariables.set('preauth_token', b.preauth_token); pm.collectionVariables.set('challenge_id', b.challenge_id);"
-      ]
-     }
-    }
-   ],
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/auth/phone/challenges",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"phone\": \"{{phone}}\",\n  \"purpose\": \"PMS_ONBOARDING\",\n  \"privacy_notice_version\": \"privacy_v1\"\n}"
-    }
-   }
-  },
-  {
-   "name": "02 Verify phone OTP",
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));",
-       "const b = pm.response.json(); pm.collectionVariables.set('session_token', b.session_token); pm.collectionVariables.set('application_id', b.application_id);"
-      ]
-     }
-    }
-   ],
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{preauth_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/verify",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"otp\": \"{{otp}}\"\n}"
-    }
-   }
-  },
-  {
-   "name": "02 Resend phone OTP",
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "if (pm.response.code === 200) { pm.collectionVariables.set('challenge_id', pm.response.json().challenge_id); }"
-      ]
-     }
-    }
-   ],
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{preauth_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/auth/phone/challenges/{{challenge_id}}/resend",
-    "body": {
-     "mode": "raw",
-     "raw": "{}"
-    }
-   }
-  },
-  {
-   "name": "Resume: GET application",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}"
-   }
-  },
-  {
-   "name": "03 Email challenge",
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('202', () => pm.response.to.have.status(202));",
-       "pm.collectionVariables.set('email_challenge_id', pm.response.json().challenge_id);"
-      ]
-     }
-    }
-   ],
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"email\": \"{{email}}\"\n}"
-    }
-   }
-  },
-  {
-   "name": "04 Verify email OTP (code from Mailpit http://localhost:8025)",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/verify",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"otp\": \"{{otp}}\"\n}"
-    }
-   }
-  },
-  {
-   "name": "04 Resend email OTP",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/email/challenges/{{email_challenge_id}}/resend",
-    "body": {
-     "mode": "raw",
-     "raw": "{}"
-    }
-   }
-  },
-  {
-   "name": "05 Eligibility",
-   "request": {
-    "method": "PUT",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/eligibility",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"customer_type\": \"INDIVIDUAL\",\n  \"residential_status\": \"RESIDENT\",\n  \"intended_investment_inr\": 5000000,\n  \"distribution_route\": \"DIRECT\"\n}"
-    }
-   }
-  },
-  {
-   "name": "06 Submit identity (PAN)",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/identity-verifications",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"pan\": \"{{pan}}\",\n  \"legal_name\": \"Vinod Kumar Singh\",\n  \"date_of_birth\": \"1955-08-16\",\n  \"permission_version\": \"kyc_fetch_v1\"\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('202', () => pm.response.to.have.status(202));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "07 KYC status (poll)",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "const b = pm.response.json(); if (b.kyc_record_version) pm.collectionVariables.set('kyc_record_version', b.kyc_record_version);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "08 Confirm existing KYC",
-   "request": {
-    "method": "PUT",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/confirmation",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"kyc_record_version\": \"{{kyc_record_version}}\",\n  \"details_confirmed\": true,\n  \"changes\": {}\n}"
-    }
-   }
-  },
-  {
-   "name": "09 Create digital KYC session",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/sessions",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"method\": \"DIGITAL_DOCUMENTS\"\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "const b = pm.response.json(); if (b.session_id) pm.collectionVariables.set('kyc_session_id', b.session_id);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "10 Authorise document upload",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/document-uploads",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"requirement_id\": \"ADDRESS_PROOF\",\n  \"content_type\": \"application/pdf\",\n  \"size_bytes\": 102400\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "const b = pm.response.json(); if (b.upload_id) { pm.collectionVariables.set('upload_id', b.upload_id); pm.collectionVariables.set('upload_url', b.upload_url); }"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "10 Submit document",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/documents",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"requirement_id\": \"ADDRESS_PROOF\",\n  \"document_type\": \"AADHAAR\",\n  \"files\": [\n    {\n      \"upload_id\": \"{{upload_id}}\",\n      \"side\": \"FRONT\"\n    }\n  ]\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "const b = pm.response.json(); if (b.document_id) pm.collectionVariables.set('document_id', b.document_id);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "11 Request additional verification (IPV)",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/kyc/additional-verifications",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"verification_type\": \"SELFIE_LIVENESS\",\n  \"selfie_document_id\": \"{{document_id}}\"\n}"
-    }
-   }
-  },
-  {
-   "name": "12 Save profile",
-   "request": {
-    "method": "PUT",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/profile",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"occupation\": \"PRIVATE_SECTOR\",\n  \"annual_income_band\": \"INR_10L_25L\",\n  \"source_of_funds\": [\n    \"SALARY\"\n  ],\n  \"profile_version\": \"{{profile_version}}\"\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));",
-       "const b = pm.response.json(); if (b.profile_version) pm.collectionVariables.set('profile_version', b.profile_version);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "13 Save declarations",
-   "request": {
-    "method": "PUT",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/declarations",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"tax_residencies\": [\n    {\n      \"country\": \"IN\",\n      \"tin\": \"{{pan}}\"\n    }\n  ],\n  \"pep_declaration\": \"NOT_PEP\",\n  \"declaration_version\": \"declarations_v1\"\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "14 Start bank verification",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/bank-verifications",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"account_number\": \"999912345678\",\n  \"account_number_confirmation\": \"999912345678\",\n  \"ifsc\": \"HDFC0001234\",\n  \"holder_name\": \"Vinod Kumar Singh\"\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('202', () => pm.response.to.have.status(202));",
-       "const b = pm.response.json(); pm.collectionVariables.set('bank_verification_id', b.verification_id);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "15 Bank verification status (poll)",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/bank-verifications/{{bank_verification_id}}"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "16 Save nomination",
-   "request": {
-    "method": "PUT",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/nomination",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"choice\": \"NOMINATE\",\n  \"allocation_mode\": \"EQUAL\",\n  \"nominees\": [\n    {\n      \"full_name\": \"Asha Singh\",\n      \"relationship\": \"SPOUSE\",\n      \"is_minor\": false\n    }\n  ]\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "17 Submit suitability questionnaire",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/suitability-assessments",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"questionnaire_version\": \"suitability_v1\",\n  \"answers\": [\n    {\n      \"question_id\": \"OBJECTIVE\",\n      \"answer_id\": \"LONG_TERM_GROWTH\"\n    },\n    {\n      \"question_id\": \"HORIZON\",\n      \"answer_id\": \"FIVE_YEARS_PLUS\"\n    },\n    {\n      \"question_id\": \"LIQUIDITY\",\n      \"answer_id\": \"NONE_EXPECTED\"\n    },\n    {\n      \"question_id\": \"EXPERIENCE\",\n      \"answer_id\": \"DIRECT_EQUITY\"\n    },\n    {\n      \"question_id\": \"RISK_CAPACITY\",\n      \"answer_id\": \"LOSS_UP_TO_25\"\n    }\n  ]\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));",
-       "const b = pm.response.json(); pm.collectionVariables.set('assessment_id', b.assessment_id);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "18 Confirm investment approach",
-   "request": {
-    "method": "PUT",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/investment-approach",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"assessment_id\": \"{{assessment_id}}\",\n  \"assessment_version\": 1,\n  \"approach_code\": \"EQUITY_GROWTH\",\n  \"confirmed\": true\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "19 Fee illustration",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/fee-illustrations",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"approach_code\": \"EQUITY_GROWTH\",\n  \"fee_schedule_version\": \"fees_v1\",\n  \"scenario_code\": \"RETURN_PLUS_10\"\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "19 Record acknowledgements",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/acknowledgements",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"document_pack_version\": 1,\n  \"acknowledgements\": [\n    {\n      \"document_type\": \"DISCLOSURE\",\n      \"document_version\": \"disclosure_v1\",\n      \"acknowledged\": true\n    },\n    {\n      \"document_type\": \"MITC\",\n      \"document_version\": \"mitc_v1\",\n      \"acknowledged\": true\n    }\n  ],\n  \"fee_understanding_note\": \"I understand the management and performance fees apply to my portfolio each year.\"\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "20 Review summary",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/review"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));",
-       "const b = pm.response.json(); pm.collectionVariables.set('application_version', b.application_version);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "20 Confirm review",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/review-confirmations",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"application_version\": \"{{application_version}}\",\n  \"document_pack_version\": 1,\n  \"details_confirmed\": true\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));",
-       "const b = pm.response.json(); pm.collectionVariables.set('snapshot_id', b.snapshot_id);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "21 Create signing session",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/signing-sessions",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"snapshot_id\": \"{{snapshot_id}}\",\n  \"document_pack_version\": 1,\n  \"signing_method\": \"AADHAAR_ESIGN\"\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('201', () => pm.response.to.have.status(201));",
-       "const b = pm.response.json(); pm.collectionVariables.set('signing_session_id', b.signing_session_id);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "21 Signing status (poll)",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/signing-sessions/{{signing_session_id}}"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "22 Processing status",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/status"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "22 Respond to task",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/tasks/{{task_id}}/responses",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"response_type\": \"TEXT\",\n  \"text\": \"Clarification provided.\"\n}"
-    }
-   }
-  },
-  {
-   "name": "Internal \u00b7 underlying account READY (PMS)",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/underlying-accounts",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"CUSTODIAN\",\n  \"account_type\": \"PMS_ACCOUNT\",\n  \"account_reference\": \"PMS000123\",\n  \"status\": \"READY\"\n}"
-    }
-   }
-  },
-  {
-   "name": "Internal \u00b7 underlying account READY (DEMAT)",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/underlying-accounts",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"DP\",\n  \"account_type\": \"DEMAT\",\n  \"account_reference\": \"IN000123\",\n  \"status\": \"READY\"\n}"
-    }
-   }
-  },
-  {
-   "name": "23 Funding instructions",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/funding-instructions"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));",
-       "const b = pm.response.json(); pm.collectionVariables.set('payment_reference', b.payment_reference);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "23 Funding notification",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     },
-     {
-      "key": "Idempotency-Key",
-      "value": "{{$guid}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/funding-notifications",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"funding_method\": \"BANK_TRANSFER\",\n  \"customer_transfer_reference\": \"UTR123456789\"\n}"
-    }
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('202', () => pm.response.to.have.status(202));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "Internal \u00b7 funding receipt",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/funding-receipts",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"provider_receipt_key\": \"{{$guid}}\",\n  \"provider\": \"BANK\",\n  \"amount_inr\": 5000000,\n  \"currency\": \"INR\",\n  \"source_account_number\": \"999912345678\",\n  \"destination_reference\": \"{{payment_reference}}\",\n  \"value_date\": \"2026-10-18\"\n}"
-    }
-   }
-  },
-  {
-   "name": "24 Funding status (poll)",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/funding-status"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "25 Completion",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Authorization",
-      "value": "Bearer {{session_token}}"
-     }
-    ],
-    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/completion"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "pm.test('200', () => pm.response.to.have.status(200));"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "Internal \u00b7 re-queue account opening",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     },
-     {
-      "key": "X-Reviewer-Id",
-      "value": "ops-1"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/account-opening-runs",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"snapshot_id\": \"{{snapshot_id}}\",\n  \"document_pack_version\": 1\n}"
-    }
-   }
-  },
-  {
-   "name": "Internal \u00b7 re-run screening (Job A)",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     },
-     {
-      "key": "X-Reviewer-Id",
-      "value": "ops-1"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/screening-runs",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"identity_version\": 1,\n  \"screening_policy_version\": \"screening_v1\"\n}"
-    }
-   }
-  },
-  {
-   "name": "Internal \u00b7 re-run AML risk rating (Job B)",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     },
-     {
-      "key": "X-Reviewer-Id",
-      "value": "ops-1"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/applications/{{application_id}}/aml-assessments",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"identity_version\": 1,\n  \"profile_version\": 1,\n  \"declaration_version\": 1,\n  \"policy_version\": \"aml_v1\"\n}"
-    }
-   }
-  },
-  {
-   "name": "Reviewer \u00b7 open cases",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     },
-     {
-      "key": "X-Reviewer-Id",
-      "value": "{{reviewer_id}}"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/review/cases?status=OPEN&limit=50"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "const b = pm.response.json(); if (b[0]) pm.collectionVariables.set('case_id', b[0].case_id);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "Reviewer \u00b7 tasks",
-   "request": {
-    "method": "GET",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     },
-     {
-      "key": "X-Reviewer-Id",
-      "value": "{{reviewer_id}}"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/review/tasks?status=OPEN,UNDER_REVIEW"
-   },
-   "event": [
-    {
-     "listen": "test",
-     "script": {
-      "type": "text/javascript",
-      "exec": [
-       "const b = pm.response.json(); if (b[0]) pm.collectionVariables.set('task_id', b[0].task_id);"
-      ]
-     }
-    }
-   ]
-  },
-  {
-   "name": "Reviewer \u00b7 decide case",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     },
-     {
-      "key": "X-Reviewer-Id",
-      "value": "{{reviewer_id}}"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/review/cases/{{case_id}}/decisions",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"decision\": \"PROCEED\",\n  \"reason\": \"Documented reason for the decision (min 10 chars).\"\n}"
-    }
-   }
-  },
-  {
-   "name": "Reviewer \u00b7 accept bank evidence",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     },
-     {
-      "key": "X-Reviewer-Id",
-      "value": "{{reviewer_id}}"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/review/applications/{{application_id}}/bank-evidence",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"verification_id\": \"{{bank_verification_id}}\",\n  \"reason\": \"Cancelled cheque verified by reviewer.\"\n}"
-    }
-   }
-  },
-  {
-   "name": "Reviewer \u00b7 resolve task",
-   "request": {
-    "method": "POST",
-    "header": [
-     {
-      "key": "Content-Type",
-      "value": "application/json"
-     },
-     {
-      "key": "X-Internal-Token",
-      "value": "{{internal_token}}"
-     },
-     {
-      "key": "X-Reviewer-Id",
-      "value": "{{reviewer_id}}"
-     }
-    ],
-    "url": "{{baseUrl}}/internal/v1/review/tasks/{{task_id}}/resolution",
-    "body": {
-     "mode": "raw",
-     "raw": "{\n  \"resolution\": \"RESOLVED\",\n  \"reason\": \"Clarification reviewed and accepted.\"\n}"
-    }
-   }
+   "key": "digio_webhook_secret",
+   "value": "local-webhook-secret"
   }
  ]
 }
