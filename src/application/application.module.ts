@@ -4,6 +4,9 @@ import { DocumentService } from './documents/document.service';
 import { NominationService } from './nomination/nomination.service';
 import { DeclarationsService } from './profile/declarations.service';
 import { ProfileService } from './profile/profile.service';
+import { FeesService } from './fees/fees.service';
+import { ReviewService } from './review/review.service';
+import { SuitabilityService } from './suitability/suitability.service';
 import { AdditionalVerificationService } from './kyc/additional-verification.service';
 import { IdentityService } from './kyc/identity.service';
 import { KycConfirmationService } from './kyc/kyc-confirmation.service';
@@ -39,6 +42,9 @@ import { EmailVerificationService } from './onboarding/email-verification.servic
     DeclarationsService,
     BankVerificationService,
     NominationService,
+    SuitabilityService,
+    FeesService,
+    ReviewService,
   ],
   exports: [
     PhoneChallengeService,
@@ -55,6 +61,9 @@ import { EmailVerificationService } from './onboarding/email-verification.servic
     DeclarationsService,
     BankVerificationService,
     NominationService,
+    SuitabilityService,
+    FeesService,
+    ReviewService,
   ],
 })
 export class ApplicationServicesModule {}

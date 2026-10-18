@@ -5,6 +5,7 @@ import { DocumentsController } from './documents.controller';
 import { EmailChallengeController } from './email-challenge.controller';
 import { KycController } from './kyc.controller';
 import { ProfileBankNominationController } from './phase4.controller';
+import { SuitabilityFeesReviewController } from './phase5.controller';
 
 @Module({
   imports: [ApplicationServicesModule],
@@ -14,6 +15,7 @@ import { ProfileBankNominationController } from './phase4.controller';
     KycController,
     DocumentsController,
     ProfileBankNominationController,
+    SuitabilityFeesReviewController,
   ],
 })
 export class OnboardingApiModule {}

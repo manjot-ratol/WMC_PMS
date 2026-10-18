@@ -1,6 +1,6 @@
 {
  "info": {
-  "name": "WMC PMS Onboarding - screens 01-16",
+  "name": "WMC PMS Onboarding - screens 01-20",
   "_postman_id": "7c1f1d3e-5a6b-4b0f-9f6e-wmcpms0000002",
   "description": "Runs the onboarding journey against the local backend (`make up` + `npm run start:api`).\n\nOTP delivery locally: the SMS sender only logs a masked destination, so read the phone OTP from the API log at debug level (`LOG_LEVEL=debug`, event `sms.sent` is masked; the code is NOT logged). For local testing use the Mailpit UI (http://localhost:8025) for email codes, and for phone codes run with `APP_ENV=local` and read the code from the MessageSpy via the SIT harness, or use the SIT suite (`make sit`) which drives the whole journey automatically.\n\nVariables chain automatically via test scripts: preauth_token, challenge_id, session_token, application_id, email_challenge_id.",
   "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -72,6 +72,18 @@
   },
   {
    "key": "document_id",
+   "value": ""
+  },
+  {
+   "key": "assessment_id",
+   "value": ""
+  },
+  {
+   "key": "application_version",
+   "value": "0"
+  },
+  {
+   "key": "snapshot_id",
    "value": ""
   }
  ],
@@ -693,6 +705,213 @@
       "type": "text/javascript",
       "exec": [
        "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "17 Submit suitability questionnaire",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/suitability-assessments",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"questionnaire_version\": \"suitability_v1\",\n  \"answers\": [\n    {\n      \"question_id\": \"OBJECTIVE\",\n      \"answer_id\": \"LONG_TERM_GROWTH\"\n    },\n    {\n      \"question_id\": \"HORIZON\",\n      \"answer_id\": \"FIVE_YEARS_PLUS\"\n    },\n    {\n      \"question_id\": \"LIQUIDITY\",\n      \"answer_id\": \"NONE_EXPECTED\"\n    },\n    {\n      \"question_id\": \"EXPERIENCE\",\n      \"answer_id\": \"DIRECT_EQUITY\"\n    },\n    {\n      \"question_id\": \"RISK_CAPACITY\",\n      \"answer_id\": \"LOSS_UP_TO_25\"\n    }\n  ]\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));",
+       "const b = pm.response.json(); pm.collectionVariables.set('assessment_id', b.assessment_id);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "18 Confirm investment approach",
+   "request": {
+    "method": "PUT",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/investment-approach",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"assessment_id\": \"{{assessment_id}}\",\n  \"assessment_version\": 1,\n  \"approach_code\": \"EQUITY_GROWTH\",\n  \"confirmed\": true\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "19 Fee illustration",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/fee-illustrations",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"approach_code\": \"EQUITY_GROWTH\",\n  \"fee_schedule_version\": \"fees_v1\",\n  \"scenario_code\": \"RETURN_PLUS_10\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "19 Record acknowledgements",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/acknowledgements",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"document_pack_version\": 1,\n  \"acknowledgements\": [\n    {\n      \"document_type\": \"DISCLOSURE\",\n      \"document_version\": \"disclosure_v1\",\n      \"acknowledged\": true\n    },\n    {\n      \"document_type\": \"MITC\",\n      \"document_version\": \"mitc_v1\",\n      \"acknowledged\": true\n    }\n  ],\n  \"fee_understanding_note\": \"I understand the management and performance fees apply to my portfolio each year.\"\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "20 Review summary",
+   "request": {
+    "method": "GET",
+    "header": [
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/review"
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));",
+       "const b = pm.response.json(); pm.collectionVariables.set('application_version', b.application_version);"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "name": "20 Confirm review",
+   "request": {
+    "method": "POST",
+    "header": [
+     {
+      "key": "Content-Type",
+      "value": "application/json"
+     },
+     {
+      "key": "Authorization",
+      "value": "Bearer {{session_token}}"
+     },
+     {
+      "key": "Idempotency-Key",
+      "value": "{{$guid}}"
+     }
+    ],
+    "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/review-confirmations",
+    "body": {
+     "mode": "raw",
+     "raw": "{\n  \"application_version\": \"{{application_version}}\",\n  \"document_pack_version\": 1,\n  \"details_confirmed\": true\n}"
+    }
+   },
+   "event": [
+    {
+     "listen": "test",
+     "script": {
+      "type": "text/javascript",
+      "exec": [
+       "pm.test('200', () => pm.response.to.have.status(200));",
+       "const b = pm.response.json(); pm.collectionVariables.set('snapshot_id', b.snapshot_id);"
       ]
      }
     }

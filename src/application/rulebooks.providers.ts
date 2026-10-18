@@ -22,6 +22,15 @@ import {
   PROFILE_RULEBOOK,
   loadProfileRulebook,
 } from '../domain/profile/profile';
+import {
+  DOCUMENT_PACK_RULEBOOK,
+  loadDocumentPackRulebook,
+} from '../domain/documents/document-pack';
+import { FEE_RULEBOOK, loadFeeRulebook } from '../domain/fees/fee-engine';
+import {
+  SUITABILITY_RULEBOOK,
+  loadSuitabilityRulebook,
+} from '../domain/suitability/suitability';
 
 /** Versioned configuration loaded once per process. */
 export const KycRelianceRulebookProviders: Provider[] = [
@@ -42,4 +51,13 @@ export const KycRelianceRulebookProviders: Provider[] = [
   { provide: TAX_RULEBOOK, useFactory: () => loadTaxRulebook() },
   { provide: BANK_RULEBOOK, useFactory: () => loadBankRulebook() },
   { provide: NOMINATION_RULEBOOK, useFactory: () => loadNominationRulebook() },
+  {
+    provide: SUITABILITY_RULEBOOK,
+    useFactory: () => loadSuitabilityRulebook(),
+  },
+  { provide: FEE_RULEBOOK, useFactory: () => loadFeeRulebook() },
+  {
+    provide: DOCUMENT_PACK_RULEBOOK,
+    useFactory: () => loadDocumentPackRulebook(),
+  },
 ];

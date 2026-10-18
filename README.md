@@ -48,13 +48,17 @@ npm run lint
 | 14 | `POST …/bank-verifications` (202; Digio bank verification runs in the worker) | session bearer |
 | 15 | `GET …/bank-verifications/{id}` (read-only result and remediation) | session bearer |
 | 16 | `PUT …/nomination` | session bearer |
+| 17 | `POST …/suitability-assessments` (scored server-side; INCOMPLETE until every question is answered) | session bearer |
+| 18 | `PUT …/investment-approach` (only an approach the assessment permits; 409 on a stale assessment) | session bearer |
+| 19 | `POST …/fee-illustrations`, `POST …/acknowledgements` (409 on an outdated document pack) | session bearer |
+| 20 | `GET …/review` (masked summary, versions, gates), `POST …/review-confirmations` (immutable snapshot; 409 on a stale `application_version`) | session bearer |
 | webhook | `POST /v1/integrations/digio/webhooks` | `X-Digio-Checksum` HMAC |
 
 All mutating routes require an `Idempotency-Key` header. Swagger documents request and response shapes at `/docs`.
 `postman/wmc_pms.postman_collection.json` chains the journey; email OTPs are visible in Mailpit at
 http://localhost:8025, phone OTPs are never logged (the SIT suite reads them through an in-memory spy).
 
-Rulebooks live in `config/rulebooks/` (eligibility, KYC reliance, document requirements, IPV thresholds, profile vocabulary, tax, bank name-match thresholds, nomination); all are
+Rulebooks live in `config/rulebooks/` (eligibility, KYC reliance, document requirements, IPV thresholds, profile vocabulary, tax, bank name-match thresholds, nomination, suitability questionnaire/scoring/approach map, fee schedule and illustration scenarios, document pack matrix); all are
 placeholder content pending Compliance. Digio API references used for the connectors are under `docs/partners/digio/`.
 
 The worker (`npm run start:worker`) must be running for screens 06–11: KRA lookup, DigiStudio status polling,

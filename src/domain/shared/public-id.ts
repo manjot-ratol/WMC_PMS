@@ -17,4 +17,7 @@ export const ID_PREFIX = {
   bankVerification: 'bv',
   screeningRun: 'sr',
   amlAssessment: 'aml',
+  suitabilityAssessment: 'sa',
+  feeIllustration: 'fi',
+  reviewSnapshot: 'snap',
 } as const;

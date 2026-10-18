@@ -472,3 +472,82 @@ model AmlAssessment {
   @@map("aml_assessments")
   @@schema("compliance")
 }
+
+// ---------------- phase 5: suitability, approach, fees, acknowledgements, review ----------------
+
+model SuitabilityAssessment {
+  id                     String   @id
+  applicationId          String   @map("application_id")
+  version                Int
+  questionnaireVersion   String   @map("questionnaire_version")
+  answers                Json
+  status                 String
+  score                  Int?
+  riskProfile            String?  @map("risk_profile")
+  permittedApproachCodes Json     @map("permitted_approach_codes")
+  missingQuestionIds     Json     @map("missing_question_ids")
+  createdAt              DateTime @map("created_at") @db.Timestamptz
+
+  @@unique([applicationId, version])
+  @@map("suitability_assessments")
+  @@schema("onboarding")
+}
+
+model InvestmentApproach {
+  applicationId     String   @map("application_id")
+  version           Int
+  assessmentId      String   @map("assessment_id")
+  assessmentVersion Int      @map("assessment_version")
+  approachCode      String   @map("approach_code")
+  confirmedAt       DateTime @map("confirmed_at") @db.Timestamptz
+
+  @@id([applicationId, version])
+  @@map("investment_approaches")
+  @@schema("onboarding")
+}
+
+model FeeIllustration {
+  id                 String   @id
+  applicationId      String   @map("application_id")
+  approachCode       String   @map("approach_code")
+  feeScheduleVersion String   @map("fee_schedule_version")
+  scenarioCode       String   @map("scenario_code")
+  disclaimerVersion  String   @map("disclaimer_version")
+  assumptions        Json
+  lineItems          Json     @map("line_items")
+  createdAt          DateTime @map("created_at") @db.Timestamptz
+
+  @@index([applicationId])
+  @@map("fee_illustrations")
+  @@schema("onboarding")
+}
+
+model Acknowledgement {
+  applicationId                String   @map("application_id")
+  version                      Int
+  documentPackVersion          Int      @map("document_pack_version")
+  items                        Json
+  feeUnderstandingNote         Bytes    @map("fee_understanding_note")
+  feeAnnexureExecutionRequired Boolean  @map("fee_annexure_execution_required")
+  recordedAt                   DateTime @map("recorded_at") @db.Timestamptz
+
+  @@id([applicationId, version])
+  @@map("acknowledgements")
+  @@schema("onboarding")
+}
+
+model ReviewSnapshot {
+  id                          String   @id
+  applicationId               String   @map("application_id")
+  confirmedApplicationVersion Int      @map("confirmed_application_version")
+  applicationVersion          Int      @map("application_version")
+  documentPackVersion         Int      @map("document_pack_version")
+  sections                    Json
+  hash                        String
+  status                      String
+  confirmedAt                 DateTime @map("confirmed_at") @db.Timestamptz
+
+  @@index([applicationId, status])
+  @@map("review_snapshots")
+  @@schema("onboarding")
+}

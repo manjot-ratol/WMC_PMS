@@ -1,0 +1,17 @@
+{
+  "version": "fees_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: fee terms and scenarios are illustrative, never a quote.",
+  "disclaimerVersion": "illustration_v1",
+  "approaches": {
+    "CONSERVATIVE_INCOME": { "managementFeeBps": 100, "performanceFeeBps": 0, "hurdleRateBps": 0, "highWaterMark": false, "operatingExpensesBps": 25 },
+    "BALANCED_MULTI_ASSET": { "managementFeeBps": 150, "performanceFeeBps": 1000, "hurdleRateBps": 800, "highWaterMark": true, "operatingExpensesBps": 30 },
+    "EQUITY_GROWTH": { "managementFeeBps": 200, "performanceFeeBps": 1500, "hurdleRateBps": 1000, "highWaterMark": true, "operatingExpensesBps": 35 },
+    "FOCUSED_EQUITY": { "managementFeeBps": 250, "performanceFeeBps": 2000, "hurdleRateBps": 1000, "highWaterMark": true, "operatingExpensesBps": 40 }
+  },
+  "scenarios": [
+    { "code": "RETURN_NEGATIVE_10", "assumedReturnBps": -1000, "investmentInr": 5000000 },
+    { "code": "RETURN_FLAT", "assumedReturnBps": 0, "investmentInr": 5000000 },
+    { "code": "RETURN_PLUS_10", "assumedReturnBps": 1000, "investmentInr": 5000000 },
+    { "code": "RETURN_PLUS_20", "assumedReturnBps": 2000, "investmentInr": 5000000 }
+  ]
+}

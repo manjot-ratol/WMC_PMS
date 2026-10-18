@@ -16,6 +16,10 @@ export const SCREENS = [
   'BANK_PROGRESS',
   'NOMINATION',
   'INVESTMENT_PROFILE',
+  'INVESTMENT_APPROACH',
+  'FEES_DISCLOSURES',
+  'APPLICATION_REVIEW',
+  'SIGN_DOCUMENTS',
   'ASSISTED_ONBOARDING',
   'NOT_ELIGIBLE',
 ] as const;
@@ -32,6 +36,10 @@ export const STEP_IDS = [
   'DECLARATIONS',
   'BANK',
   'NOMINATION',
+  'SUITABILITY',
+  'APPROACH',
+  'ACKNOWLEDGEMENTS',
+  'REVIEW',
 ] as const;
 export type StepId = (typeof STEP_IDS)[number];
 

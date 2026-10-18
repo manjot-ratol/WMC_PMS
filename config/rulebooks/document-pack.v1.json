@@ -1,0 +1,13 @@
+{
+  "version": "document_pack_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: document matrix and versions are illustrative.",
+  "packVersion": 1,
+  "documents": [
+    { "type": "DISCLOSURE", "version": "disclosure_v1", "acknowledgementRequired": true, "executionRequired": false },
+    { "type": "MITC", "version": "mitc_v1", "acknowledgementRequired": true, "executionRequired": true },
+    { "type": "PMS_AGREEMENT", "version": "agreement_v1", "acknowledgementRequired": false, "executionRequired": true },
+    { "type": "FEE_ANNEXURE", "version": "fee_annexure_v1", "acknowledgementRequired": false, "executionRequired": true },
+    { "type": "ACCOUNT_OPENING_FORM", "version": "aof_v1", "acknowledgementRequired": false, "executionRequired": true }
+  ],
+  "feeUnderstandingNote": { "minLength": 20, "maxLength": 500 }
+}

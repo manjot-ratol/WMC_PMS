@@ -31,3 +31,6 @@ export * from './bank.repository.port';
 export * from './compliance.repository.port';
 export * from './nomination.repository.port';
 export * from './profile.repository.port';
+export * from './suitability.repository.port';
+export * from './fee.repository.port';
+export * from './review.repository.port';

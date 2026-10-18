@@ -1,0 +1,28 @@
+{
+  "version": "suitability_v1",
+  "note": "PLACEHOLDER_PENDING_COMPLIANCE: questionnaire, scoring, bands and approach catalogue are illustrative.",
+  "questions": [
+    { "id": "OBJECTIVE", "answers": [{ "id": "CAPITAL_PRESERVATION", "score": 1 }, { "id": "REGULAR_INCOME", "score": 2 }, { "id": "BALANCED_GROWTH", "score": 3 }, { "id": "LONG_TERM_GROWTH", "score": 4 }] },
+    { "id": "HORIZON", "answers": [{ "id": "UNDER_1_YEAR", "score": 1 }, { "id": "ONE_TO_THREE_YEARS", "score": 2 }, { "id": "THREE_TO_FIVE_YEARS", "score": 3 }, { "id": "FIVE_YEARS_PLUS", "score": 4 }] },
+    { "id": "LIQUIDITY", "answers": [{ "id": "WITHIN_1_YEAR", "score": 1 }, { "id": "WITHIN_3_YEARS", "score": 2 }, { "id": "NONE_EXPECTED", "score": 4 }] },
+    { "id": "EXPERIENCE", "answers": [{ "id": "NONE", "score": 1 }, { "id": "MUTUAL_FUNDS", "score": 2 }, { "id": "DIRECT_EQUITY", "score": 3 }, { "id": "DERIVATIVES_OR_PMS", "score": 4 }] },
+    { "id": "RISK_CAPACITY", "answers": [{ "id": "LOSS_UNACCEPTABLE", "score": 1 }, { "id": "LOSS_UP_TO_10", "score": 2 }, { "id": "LOSS_UP_TO_25", "score": 3 }, { "id": "LOSS_OVER_25", "score": 4 }] }
+  ],
+  "contradictions": [
+    { "questionId": "OBJECTIVE", "answerId": "LONG_TERM_GROWTH", "conflictsWith": { "questionId": "HORIZON", "answerIds": ["UNDER_1_YEAR"] } },
+    { "questionId": "RISK_CAPACITY", "answerId": "LOSS_UNACCEPTABLE", "conflictsWith": { "questionId": "OBJECTIVE", "answerIds": ["LONG_TERM_GROWTH"] } },
+    { "questionId": "LIQUIDITY", "answerId": "WITHIN_1_YEAR", "conflictsWith": { "questionId": "HORIZON", "answerIds": ["FIVE_YEARS_PLUS"] } }
+  ],
+  "bands": [
+    { "minScore": 5, "maxScore": 8, "riskProfile": "CONSERVATIVE", "approachCodes": ["CONSERVATIVE_INCOME"] },
+    { "minScore": 9, "maxScore": 13, "riskProfile": "BALANCED", "approachCodes": ["CONSERVATIVE_INCOME", "BALANCED_MULTI_ASSET"] },
+    { "minScore": 14, "maxScore": 17, "riskProfile": "GROWTH", "approachCodes": ["BALANCED_MULTI_ASSET", "EQUITY_GROWTH"] },
+    { "minScore": 18, "maxScore": 20, "riskProfile": "AGGRESSIVE", "approachCodes": ["BALANCED_MULTI_ASSET", "EQUITY_GROWTH", "FOCUSED_EQUITY"] }
+  ],
+  "approaches": [
+    { "code": "CONSERVATIVE_INCOME", "name": "Conservative Income", "riskLevel": "LOW" },
+    { "code": "BALANCED_MULTI_ASSET", "name": "Balanced Multi-Asset", "riskLevel": "MODERATE" },
+    { "code": "EQUITY_GROWTH", "name": "Equity Growth", "riskLevel": "HIGH" },
+    { "code": "FOCUSED_EQUITY", "name": "Focused Equity", "riskLevel": "VERY_HIGH" }
+  ]
+}

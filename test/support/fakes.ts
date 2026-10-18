@@ -758,3 +758,96 @@ export class FakeCompliance implements ComplianceRepositoryPort {
     );
   }
 }
+
+/* ---------- Phase 5 fakes ---------- */
+import type {
+  FeeIllustrationRecord,
+  FeeRepositoryPort,
+} from '../../src/application/ports/fee.repository.port';
+import type { ReviewRepositoryPort } from '../../src/application/ports/review.repository.port';
+import type { SuitabilityRepositoryPort } from '../../src/application/ports/suitability.repository.port';
+import type { Acknowledgement } from '../../src/domain/documents/document-pack';
+import type { ReviewSnapshot } from '../../src/domain/review/review-snapshot';
+import type {
+  InvestmentApproach,
+  SuitabilityAssessment,
+} from '../../src/domain/suitability/suitability';
+
+export class FakeSuitability implements SuitabilityRepositoryPort {
+  readonly assessments: SuitabilityAssessment[] = [];
+  readonly approaches: InvestmentApproach[] = [];
+  appendAssessment(a: SuitabilityAssessment): Promise<void> {
+    this.assessments.push(a);
+    return Promise.resolve();
+  }
+  findAssessment(id: string): Promise<SuitabilityAssessment | null> {
+    return Promise.resolve(this.assessments.find((a) => a.id === id) ?? null);
+  }
+  latestAssessment(
+    applicationId: string,
+  ): Promise<SuitabilityAssessment | null> {
+    return Promise.resolve(
+      [...this.assessments]
+        .reverse()
+        .find((a) => a.applicationId === applicationId) ?? null,
+    );
+  }
+  appendApproach(a: InvestmentApproach): Promise<void> {
+    this.approaches.push(a);
+    return Promise.resolve();
+  }
+  latestApproach(applicationId: string): Promise<InvestmentApproach | null> {
+    return Promise.resolve(
+      [...this.approaches]
+        .reverse()
+        .find((a) => a.applicationId === applicationId) ?? null,
+    );
+  }
+}
+export class FakeFees implements FeeRepositoryPort {
+  readonly illustrations: FeeIllustrationRecord[] = [];
+  readonly acknowledgements: Acknowledgement[] = [];
+  createIllustration(r: FeeIllustrationRecord): Promise<void> {
+    this.illustrations.push(r);
+    return Promise.resolve();
+  }
+  appendAcknowledgement(a: Acknowledgement): Promise<void> {
+    this.acknowledgements.push(a);
+    return Promise.resolve();
+  }
+  latestAcknowledgement(
+    applicationId: string,
+  ): Promise<Acknowledgement | null> {
+    return Promise.resolve(
+      [...this.acknowledgements]
+        .reverse()
+        .find((a) => a.applicationId === applicationId) ?? null,
+    );
+  }
+}
+export class FakeReviews implements ReviewRepositoryPort {
+  readonly snapshots: ReviewSnapshot[] = [];
+  create(s: ReviewSnapshot): Promise<void> {
+    this.snapshots.push(s);
+    return Promise.resolve();
+  }
+  findById(id: string): Promise<ReviewSnapshot | null> {
+    return Promise.resolve(this.snapshots.find((s) => s.id === id) ?? null);
+  }
+  current(applicationId: string): Promise<ReviewSnapshot | null> {
+    return Promise.resolve(
+      [...this.snapshots]
+        .reverse()
+        .find(
+          (s) => s.applicationId === applicationId && s.status === 'CURRENT',
+        ) ?? null,
+    );
+  }
+  supersedeCurrent(applicationId: string): Promise<void> {
+    this.snapshots.forEach((s, i) => {
+      if (s.applicationId === applicationId && s.status === 'CURRENT')
+        this.snapshots[i] = { ...s, status: 'SUPERSEDED' };
+    });
+    return Promise.resolve();
+  }
+}

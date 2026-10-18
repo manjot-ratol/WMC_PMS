@@ -1,6 +1,9 @@
 import { Global, Module } from '@nestjs/common';
 import { ANALYTICS } from '../../application/ports/analytics.port';
 import { BANK_REPOSITORY } from '../../application/ports/bank.repository.port';
+import { FEE_REPOSITORY } from '../../application/ports/fee.repository.port';
+import { REVIEW_REPOSITORY } from '../../application/ports/review.repository.port';
+import { SUITABILITY_REPOSITORY } from '../../application/ports/suitability.repository.port';
 import { COMPLIANCE_REPOSITORY } from '../../application/ports/compliance.repository.port';
 import { NOMINATION_REPOSITORY } from '../../application/ports/nomination.repository.port';
 import {
@@ -32,6 +35,9 @@ import { UNIT_OF_WORK } from '../../application/ports/unit-of-work.port';
 import { PrismaService } from './prisma.service';
 import { AnalyticsOutboxRepository } from './repositories/analytics-outbox.repository';
 import { BankRepository } from './repositories/bank.repository';
+import { FeeRepository } from './repositories/fee.repository';
+import { ReviewRepository } from './repositories/review.repository';
+import { SuitabilityRepository } from './repositories/suitability.repository';
 import { ComplianceRepository } from './repositories/compliance.repository';
 import { NominationRepository } from './repositories/nomination.repository';
 import {
@@ -86,6 +92,9 @@ import { PrismaUnitOfWork } from './unit-of-work';
     { provide: PROFILE_REPOSITORY, useClass: ProfileRepository },
     { provide: DECLARATIONS_REPOSITORY, useClass: DeclarationsRepository },
     { provide: BANK_REPOSITORY, useClass: BankRepository },
+    { provide: SUITABILITY_REPOSITORY, useClass: SuitabilityRepository },
+    { provide: FEE_REPOSITORY, useClass: FeeRepository },
+    { provide: REVIEW_REPOSITORY, useClass: ReviewRepository },
     { provide: NOMINATION_REPOSITORY, useClass: NominationRepository },
     { provide: COMPLIANCE_REPOSITORY, useClass: ComplianceRepository },
   ],
@@ -107,6 +116,9 @@ import { PrismaUnitOfWork } from './unit-of-work';
     BANK_REPOSITORY,
     NOMINATION_REPOSITORY,
     COMPLIANCE_REPOSITORY,
+    SUITABILITY_REPOSITORY,
+    FEE_REPOSITORY,
+    REVIEW_REPOSITORY,
     PrismaService,
     UNIT_OF_WORK,
     OUTBOX,
