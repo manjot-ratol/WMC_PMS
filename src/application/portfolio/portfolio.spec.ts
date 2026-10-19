@@ -248,6 +248,27 @@ describe('PortfolioImportService.start', () => {
 });
 
 describe('return leg, QR validation, skip, dashboard', () => {
+  it('sends the browser to the app deep link agreed with the UI team (pmsapp://dashboard) with the query appended', async () => {
+    const { service, cmd } = build();
+    const callback = new MfCentralCallbackService(
+      service,
+      {
+        mfcentral: { ...partners.mfcentral, returnUrl: 'pmsapp://dashboard' },
+      } as never,
+      silentLogger as never,
+    );
+    await service.start({ ...cmd, consent: true });
+    expect(
+      await callback.receive({ status: 'success', reqId: '3400001' }),
+    ).toEqual({
+      redirectTo: 'pmsapp://dashboard?import_id=pi_1&status=awaiting_qr',
+      importId: 'pi_1',
+    });
+    expect(await callback.receive({ status: 'error', code: 'X' })).toEqual({
+      redirectTo: 'pmsapp://dashboard?status=unknown',
+    });
+  });
+
   it('callback marks the import AWAITING_QR; the QR upload imports the statement and advances the journey', async () => {
     const { d, service, callback, cmd } = build();
     const started = await service.start({ ...cmd, consent: true });

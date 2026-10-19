@@ -220,7 +220,7 @@ describe('SIT: journey screens 06-11', () => {
       .query({ status: 'success', reqId: importId, type: 'Summary' })
       .expect(302);
     expect(cb.headers.location).toBe(
-      `http://localhost:5173/onboarding/portfolio-import?import_id=${importId}&status=awaiting_qr`,
+      `pmsapp://dashboard?import_id=${importId}&status=awaiting_qr`,
     );
     expect(
       json(

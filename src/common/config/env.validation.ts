@@ -90,8 +90,7 @@ export class EnvSchema {
   @IsString() MFCENTRAL_REDIRECT_URL =
     'http://localhost:3000/v1/integrations/mfcentral/callback';
   /** Front-end page the callback redirects the browser to once the payload is stored. */
-  @IsString() MFCENTRAL_RETURN_URL =
-    'http://localhost:5173/onboarding/portfolio-import';
+  @IsString() MFCENTRAL_RETURN_URL = 'pmsapp://dashboard';
   @Transform(toInt) @IsInt() @Min(1) PORTFOLIO_IMPORT_TTL_MINUTES = 15;
   /** 32-byte key MF Central issued for the hand-off URL payload (AES-256-CBC, used raw). */
   @IsOptional() @IsString() MFCENTRAL_URL_ENCRYPTION_KEY = '';
