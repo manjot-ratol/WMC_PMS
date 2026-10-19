@@ -113,6 +113,13 @@ Local stack without vendor secrets: the UAT API is stubbed in WireMock (`tools/w
 
 ## Docker (everything in containers)
 
-`docker compose up -d` builds the image and starts the whole stack on mocked partners: postgres, redis, minio, wiremock, mailpit, a one-shot `migrate` job (`prisma migrate deploy`), `api` (3000), `worker` and `trackwizz-mock` (8099); MF Central is stubbed in WireMock. Configuration comes from `.env.docker` (no real credentials); to use MF Central UAT instead, set the `MFCENTRAL_*` values described above. One image, four entry points via `docker/entrypoint.sh`: `api`, `worker`, `mock`, `migrate`.
+`docker compose up -d` builds the image and starts the whole stack on mocked partners: postgres, redis, minio, wiremock, mailpit, a one-shot `migrate` job (`prisma migrate deploy`), `api` (3000), `worker` and `trackwizz-mock` (8099); MF Central is stubbed in WireMock. Configuration comes from `.env.docker` (no real credentials). To point the containers at MF Central UAT, copy `.env.docker` to a gitignored overlay with the real `MFCENTRAL_*` values and start the stack with it:
+
+```bash
+{ grep -vE '^MFCENTRAL_' .env.docker; grep -E '^MFCENTRAL_' .env; } > .env.docker.uat   # .env.* is gitignored
+WMC_PMS_ENV_FILE=.env.docker.uat docker compose up -d api worker
+```
+
+Service hostnames (postgres, redis, wiremock) stay as in `.env.docker`; only the MF Central block comes from `.env`. `internal_token` in Postman stays `dev-internal-token`. One image, four entry points via `docker/entrypoint.sh`: `api`, `worker`, `mock`, `migrate`.
 
 To hand the stack to someone without the repo: `docker build -t wmc-pms:0.1.0 . && docker save wmc-pms:0.1.0 | gzip > wmc-pms-0.1.0.tar.gz`, and ship it with `docker-compose.yml` (build lines removed), `.env.docker`, `tools/wiremock/mappings`, `tools/postgres/init` and the Postman collection. They run `docker load -i wmc-pms-0.1.0.tar.gz && docker compose up -d`.
