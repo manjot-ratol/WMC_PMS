@@ -1,8 +1,14 @@
 import type { Screen } from '../onboarding/screens';
 
-/** Screen 06A: a consent-driven CAS (consolidated account statement) pull from MF Central. */
+/**
+ * Screen 06A: a consent-driven CAS (consolidated account statement) pull from MF Central.
+ * AWAITING_AUTHORISATION = investor is on MF Central's page (OTP, data choice, QR download);
+ * AWAITING_QR = MF Central sent the browser back, we are waiting for the QR image upload;
+ * IMPORTED = `validateQRCode` returned the statement.
+ */
 export type PortfolioImportStatus =
   | 'AWAITING_AUTHORISATION'
+  | 'AWAITING_QR'
   | 'IMPORTED'
   | 'FAILED'
   | 'DECLINED'
@@ -13,6 +19,7 @@ export type PortfolioFailureCategory =
   | 'provider_rejected'
   | 'provider_unavailable'
   | 'authorisation_declined'
+  | 'qr_invalid'
   | 'invalid_payload'
   | 'expired';
 
@@ -21,17 +28,24 @@ export interface PortfolioImport {
   readonly applicationId: string;
   readonly provider: 'MFCENTRAL';
   readonly status: PortfolioImportStatus;
-  /** Our reference sent to the provider (`clientRefNo`); the callback is matched on it. */
+  /** Our reference sent to the provider (`clientRefNo`). */
   readonly clientRefNo: string;
+  /** MF Central's `reqId`; the return leg and `validateQRCode` are keyed on it. */
   readonly providerRequestId?: string;
   readonly authorisationUrl?: string;
   readonly failureCategory?: PortfolioFailureCategory;
+  /** Last vendor message for a retryable QR failure (customer-safe, e.g. "Failed to Validate QR code"). */
+  readonly lastError?: string;
   readonly expiresAt: Date;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly completedAt?: Date;
 }
 
+export const OPEN_IMPORT_STATUSES: readonly PortfolioImportStatus[] = [
+  'AWAITING_AUTHORISATION',
+  'AWAITING_QR',
+];
 export const TERMINAL_IMPORT_STATUSES: readonly PortfolioImportStatus[] = [
   'IMPORTED',
   'FAILED',
@@ -45,7 +59,7 @@ export function effectiveStatus(
   imp: Pick<PortfolioImport, 'status' | 'expiresAt'>,
   now: Date,
 ): PortfolioImportStatus {
-  if (imp.status === 'AWAITING_AUTHORISATION' && imp.expiresAt <= now)
+  if (OPEN_IMPORT_STATUSES.includes(imp.status) && imp.expiresAt <= now)
     return 'EXPIRED';
   return imp.status;
 }
@@ -54,12 +68,12 @@ export function isOpen(
   imp: Pick<PortfolioImport, 'status' | 'expiresAt'>,
   now: Date,
 ): boolean {
-  return effectiveStatus(imp, now) === 'AWAITING_AUTHORISATION';
+  return OPEN_IMPORT_STATUSES.includes(effectiveStatus(imp, now));
 }
 
 /**
- * Where the customer goes next. IMPORTED shows the dashboard; a skipped import (step complete) continues the
- * journey; anything else keeps the customer on the import screen so they can retry or skip.
+ * Where the customer goes next. IMPORTED shows the dashboard; a skipped or declined import (step complete)
+ * continues the journey; anything else keeps the customer on the import screen to retry, upload or skip.
  */
 export function importNextScreen(
   status: PortfolioImportStatus | undefined,
@@ -71,29 +85,31 @@ export function importNextScreen(
   return 'PORTFOLIO_IMPORT';
 }
 
-const SUCCESS = /^(success|succeeded|approved|completed|ok|s|y|yes|true|1)$/i;
-
-export type CallbackEvaluation =
-  | { outcome: 'AUTHORISED'; cipher: string }
-  | { outcome: 'DECLINED'; category: 'authorisation_declined' }
-  | { outcome: 'INVALID'; category: 'invalid_payload' };
+export type ReturnEvaluation =
+  | { outcome: 'SUCCESS'; reqId: string; type?: string }
+  | { outcome: 'ERROR'; reqId?: string; code?: string; message?: string }
+  | { outcome: 'INVALID' };
 
 /**
- * Interprets what MF Central brings back to `redirectUrl`. The exact field names are not documented in the
- * collection (PLACEHOLDER_PENDING_MFCENTRAL_CONFIRMATION): `status` is read case-insensitively and the
- * encrypted statement is accepted under `response`, `data` or `casData`. A missing statement is never success.
+ * What MF Central's consent app sends to `redirectUrl` (read from its bundle, 2026-10-19):
+ * success → `?status=success&reqId=…&type=Summary|Detailed`; error → `?status=error&code=ERR_…&message=…`.
  */
-export function evaluateCallback(
-  payload: Record<string, unknown>,
-): CallbackEvaluation {
-  const status = str(payload.status) ?? str(payload.result);
-  const cipher =
-    str(payload.response) ?? str(payload.data) ?? str(payload.casData);
-  if (status !== undefined && !SUCCESS.test(status.trim()))
-    return { outcome: 'DECLINED', category: 'authorisation_declined' };
-  if (!cipher) return { outcome: 'INVALID', category: 'invalid_payload' };
-  return { outcome: 'AUTHORISED', cipher };
+export function evaluateReturn(
+  params: Record<string, unknown>,
+): ReturnEvaluation {
+  const status = str(params.status)?.toLowerCase();
+  const reqId = str(params.reqId) ?? str(params.reqid);
+  if (status === 'success' && reqId)
+    return { outcome: 'SUCCESS', reqId, type: str(params.type) };
+  if (status === 'error' || status === 'failed' || status === 'failure')
+    return {
+      outcome: 'ERROR',
+      reqId,
+      code: str(params.code),
+      message: str(params.message),
+    };
+  return { outcome: 'INVALID' };
 }
 
 const str = (v: unknown): string | undefined =>
-  typeof v === 'string' && v.trim() !== '' ? v : undefined;
+  typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined;

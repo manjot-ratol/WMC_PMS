@@ -544,8 +544,8 @@
    ]
   },
   {
-   "name": "06A-06B · Portfolio import (MF Central mock)",
-   "description": "After screen 06 the customer is sent into the MF Central CAS consent flow (next_screen PORTFOLIO_IMPORT). Browser path: open the authorisation_url, press Approve on the mock's consent page, the browser POSTs to the backend callback and lands on MFCENTRAL_RETURN_URL?import_id=…&status=received; then poll the import status and load the dashboard. Script path (no browser): 'Mock: authorise' + 'Simulate return'.",
+   "name": "06A-06B · Portfolio import (MF Central)",
+   "description": "Real journey (verified on MF Central UAT 2026-10-19): 1) start → authorisation_url; 2) the investor completes OTP + QR download on MF Central's page, which sends the browser to our callback with status/reqId; 3) the investor uploads the QR image here → statement imported; 4) dashboard. Against the local stack the UAT API is a WireMock stub: the hand-off page does not exist, so run 'Simulate MF Central return' instead, and any base64 ≥ 100 chars is accepted as the QR except one starting with the base64 of 'BADQR'. Against real UAT set MFCENTRAL_BASE_URL/APP_URL + tenant secrets in .env, open authorisation_url in a browser (UAT OTP = 00 + last four PAN digits), download the QR and paste its base64 into qr_code_base64.",
    "item": [
     {
      "name": "06A Start portfolio import",
@@ -566,7 +566,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio-imports",
-      "description": "201 with authorisation_url (the mock's consent page). Calling again while AWAITING_AUTHORISATION returns the same import. PAN digits 9999 → FAILED provider_rejected (unwhitelisted on UAT); digits 0000 → empty statement.",
+      "description": "201 {import_id, status: AWAITING_AUTHORISATION, authorisation_url (MF Central's /api/auth/start?data=… hand-off), expires_at, next_screen}. Calling again while the import is open returns the same import (one vendor request). PAN digits 9999 → FAILED provider_rejected (unwhitelisted PAN on UAT).",
       "body": {
        "mode": "raw",
        "raw": "{\n  \"consent\": true\n}",
@@ -584,19 +584,28 @@
         "type": "text/javascript",
         "exec": [
          "pm.test('201', () => pm.response.to.have.status(201));",
-         "const b = pm.response.json(); pm.collectionVariables.set('import_id', b.import_id); pm.collectionVariables.set('authorisation_url', b.authorisation_url || (pm.collectionVariables.get('mfcentral_mock_url') + '/investor?reqId=none')); console.log('import', b.status, b.authorisation_url || '(no authorisation_url: status ' + b.status + ')');"
+         "const b = pm.response.json(); pm.collectionVariables.set('import_id', b.import_id); if (b.authorisation_url) pm.collectionVariables.set('authorisation_url', b.authorisation_url); console.log('import', b.status, b.authorisation_url || '(no authorisation_url: status ' + b.status + ')');"
         ]
        }
       }
      ]
     },
     {
-     "name": "06A Consent page (open in browser)",
+     "name": "06A MF Central page (real UAT only: open in a browser)",
      "request": {
       "method": "GET",
       "header": [],
       "url": "{{authorisation_url}}",
-      "description": "Open this URL in a browser (the mock's investor consent page). Approve → the browser POSTs reqId/clientRefNo/status/response to {{baseUrl}}/v1/integrations/mfcentral/callback and is redirected to the FE return URL. Skip this request and use the two below for a scripted run."
+      "description": "Encrypted hand-off to MF Central: OTP (UAT: 00 + last four PAN digits), Summary/Detailed, QR download, then MF Central sends the browser to MFCENTRAL_REDIRECT_URL?status=success&reqId=… (our callback) which 302s to MFCENTRAL_RETURN_URL?import_id=…&status=awaiting_qr. Not available on the local WireMock stack."
+     }
+    },
+    {
+     "name": "06A Simulate MF Central return (local stack)",
+     "request": {
+      "method": "GET",
+      "header": [],
+      "url": "{{baseUrl}}/v1/integrations/mfcentral/callback?status=success&reqId={{import_id}}&type=Summary",
+      "description": "What MF Central's page does from the investor's browser; no session. Locally the stub issues reqId = import_id. 302 to MFCENTRAL_RETURN_URL?import_id=…&status=awaiting_qr (unknown reqId → status=unknown; status=error&code=…&message=… → DECLINED)."
      },
      "event": [
       {
@@ -604,27 +613,38 @@
        "script": {
         "type": "text/javascript",
         "exec": [
-         "pm.test('consent page (200), or 404 when the import was not AWAITING_AUTHORISATION', () => pm.expect([200, 404]).to.include(pm.response.code));"
+         "pm.test('302 to the FE', () => { pm.response.to.have.status(302); pm.expect(pm.response.headers.get('Location')).to.include('import_id=' + pm.collectionVariables.get('import_id')); pm.expect(pm.response.headers.get('Location')).to.include('status=awaiting_qr'); });"
         ]
        }
       }
-     ]
+     ],
+     "protocolProfileBehavior": {
+      "followRedirects": false
+     }
     },
     {
-     "name": "06A Mock: authorise (script alternative to the browser)",
+     "name": "06A Upload the QR image",
      "request": {
       "method": "POST",
       "header": [
        {
         "key": "Content-Type",
         "value": "application/json"
+       },
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
        }
       ],
-      "url": "{{mfcentral_mock_url}}/mock/requests/{{import_id}}/authorise",
-      "description": "Returns exactly what the consent page would post to our callback. outcome: APPROVE | DECLINE.",
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio-imports/{{import_id}}/qr-validations",
+      "description": "Body qr_code = base64 of the PNG the investor downloaded (data: URI prefix allowed). 200 {import_id, status: IMPORTED, next_screen: ASSETS_DASHBOARD}. MF Central rejecting the QR → 422 with the vendor message (import stays open, last_error set); unreadable statement → FAILED invalid_payload. Allowed while AWAITING_AUTHORISATION or AWAITING_QR; idempotent once IMPORTED.",
       "body": {
        "mode": "raw",
-       "raw": "{\n  \"outcome\": \"APPROVE\"\n}",
+       "raw": "{\n  \"qr_code\": \"{{qr_code_base64}}\"\n}",
        "options": {
         "raw": {
          "language": "json"
@@ -638,64 +658,14 @@
        "script": {
         "type": "text/javascript",
         "exec": [
-         "pm.test('200', () => pm.response.to.have.status(200));",
-         "const b = pm.response.json(); pm.collectionVariables.set('mfc_req_id', b.fields.reqId); pm.collectionVariables.set('mfc_client_ref', b.fields.clientRefNo); pm.collectionVariables.set('mfc_status', b.fields.status); pm.collectionVariables.set('mfc_response', b.fields.response || '');"
+         "pm.test('200 IMPORTED', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().status).to.eql('IMPORTED'); });"
         ]
        }
       }
      ]
     },
     {
-     "name": "06A Simulate return to the callback",
-     "request": {
-      "method": "POST",
-      "header": [
-       {
-        "key": "Content-Type",
-        "value": "application/x-www-form-urlencoded"
-       }
-      ],
-      "url": "{{baseUrl}}/v1/integrations/mfcentral/callback",
-      "description": "No session: this is what MF Central's redirect does from the investor's browser. 302 to MFCENTRAL_RETURN_URL?import_id=…&status=received (unknown clientRefNo → status=unknown). The worker then decrypts and parses the statement.",
-      "body": {
-       "mode": "urlencoded",
-       "urlencoded": [
-        {
-         "key": "reqId",
-         "value": "{{mfc_req_id}}"
-        },
-        {
-         "key": "clientRefNo",
-         "value": "{{mfc_client_ref}}"
-        },
-        {
-         "key": "status",
-         "value": "{{mfc_status}}"
-        },
-        {
-         "key": "response",
-         "value": "{{mfc_response}}"
-        }
-       ]
-      }
-     },
-     "event": [
-      {
-       "listen": "test",
-       "script": {
-        "type": "text/javascript",
-        "exec": [
-         "pm.test('302 to the FE', () => { pm.response.to.have.status(302); pm.expect(pm.response.headers.get('Location')).to.include('import_id=' + pm.collectionVariables.get('import_id')); });"
-        ]
-       }
-      }
-     ],
-     "protocolProfileBehavior": {
-      "followRedirects": false
-     }
-    },
-    {
-     "name": "06A Import status (poll until IMPORTED)",
+     "name": "06A Import status",
      "request": {
       "method": "GET",
       "header": [
@@ -709,7 +679,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio-imports/{{import_id}}",
-      "description": "AWAITING_AUTHORISATION → IMPORTED (next_screen ASSETS_DASHBOARD) | DECLINED | FAILED (failure_category) | EXPIRED (after PORTFOLIO_IMPORT_TTL_MINUTES)."
+      "description": "status: AWAITING_AUTHORISATION | AWAITING_QR | IMPORTED | DECLINED | FAILED (failure_category) | EXPIRED | SKIPPED, plus last_error, authorisation_url while open, expires_at and next_screen."
      },
      "event": [
       {
@@ -717,9 +687,7 @@
        "script": {
         "type": "text/javascript",
         "exec": [
-         "pm.test('200', () => pm.response.to.have.status(200));",
-         "const b = pm.response.json(); console.log('import', b.status, b.next_screen);",
-         "// newman/runner: re-run this request while the job is still in flight (max 20 polls); Postman app users just re-send it\nconst __st = pm.response.code===200 ? pm.response.json().status : undefined; const __k='__polls_'+pm.info.requestId; const __n=Number(pm.variables.get(__k)||0);\nif ([\"AWAITING_AUTHORISATION\"].includes(__st) && __n < 20) { pm.variables.set(__k, __n+1); postman.setNextRequest(pm.info.requestName); } else { pm.variables.set(__k, 0); }"
+         "pm.test('200', () => pm.response.to.have.status(200)); console.log('import status', pm.response.json().status, pm.response.json().last_error || '');"
         ]
        }
       }
@@ -740,7 +708,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio",
-      "description": "Masked holdings (PAN, folios), totals, split by asset class. next_screen is where Continue goes (the KYC outcome, e.g. CONFIRM_KYC)."
+      "description": "status AVAILABLE | NOT_AVAILABLE | SKIPPED. AVAILABLE carries as_of, investor {name, pan_masked}, totals, by_asset_class, by_amc, holdings (folio_masked, nav, units, market/cost/gain), partial + notice when MF Central could not fetch every RTA, and next_screen for Continue."
      },
      "event": [
       {
@@ -748,8 +716,7 @@
        "script": {
         "type": "text/javascript",
         "exec": [
-         "pm.test('200', () => pm.response.to.have.status(200));",
-         "pm.test('available', () => pm.expect(pm.response.json().status).to.eql('AVAILABLE'));"
+         "pm.test('200', () => pm.response.to.have.status(200)); const b = pm.response.json(); console.log('portfolio', b.status, b.totals && b.totals.market_value_inr, 'holdings', (b.holdings || []).length, 'next', b.next_screen);"
         ]
        }
       }
@@ -774,7 +741,7 @@
        }
       ],
       "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio-imports/skip",
-      "description": "Completes the optional step without importing; next_screen follows the KYC lookup (KYC_PROGRESS until it finishes).",
+      "description": "{status: SKIPPED, next_screen} — cancels an open import; refused (422 already_imported) once a statement is imported.",
       "body": {
        "mode": "raw",
        "raw": "{}",
@@ -791,7 +758,7 @@
        "script": {
         "type": "text/javascript",
         "exec": [
-         "pm.test('200 (or 422 already_imported when run after a successful import)', () => pm.expect([200, 422]).to.include(pm.response.code));"
+         "pm.test('200', () => pm.response.to.have.status(200));"
         ]
        }
       }
@@ -2444,10 +2411,6 @@
    "value": "local-webhook-secret"
   },
   {
-   "key": "mfcentral_mock_url",
-   "value": "http://localhost:4011"
-  },
-  {
    "key": "import_id",
    "value": ""
   },
@@ -2456,20 +2419,9 @@
    "value": ""
   },
   {
-   "key": "mfc_req_id",
-   "value": ""
-  },
-  {
-   "key": "mfc_client_ref",
-   "value": ""
-  },
-  {
-   "key": "mfc_status",
-   "value": ""
-  },
-  {
-   "key": "mfc_response",
-   "value": ""
+   "key": "qr_code_base64",
+   "value": "iVBORw0KGgoAAAANSUhEUgAAAPoAAAD6AQAAAACgl2eQAAACP0lEQVR4Xu2YQW6DQAxFjVjMkiPMTcLFIhWJiw03mSNkyQLh/m/TqkOrbLEqvEhh+iJh6/vbRPR9FDmfnOIGPG7A4wY8/hMgiKzL65lVX7judOPRRyggqW45LaoVVK/yGDaiwYAilgA/dObJlqWLCOCkZz6qK7OICayjWoFFrPLxADt5QKe6oNS4ssrHAqyzEjvr++OP1rsYsFiF/bQPE0ptCVjEAfDEeOzHMFdHO50rlBsLSIU3y0s8CxmRxdqq+npAZJjg9jBSuOmUUfRZ094I5nog7agyVPAU5DNlXiGfYMDKfsdxX3lcoYeTR0UAZFRmgeNknWUJ7D9VHQCgx2dYfs8EMDfLgA3k0XjU9UCixyMBiJbKQI+h3tEA/LHoK9Y4s9SJt7EA+pF11qGHhR41Hl+NAkCvHETchbmGrMKF5LQVXw7YE/tWvIvLl93GiANYK8FDMS2FTV++6h0JYD9xeNKjINbEDcTRQACWDw4ilhqWz9V91kYPEQCooFeuwWgvpUdBvk1nRQAgUJoS9QCPgigYXTs3Lwco0Kp8E6IefPloPSoCYMsR29+POdfPG+n1AKVw/MRBPRSk0q7uEYCdnb/wrQLPXk0OTCoUYCEcRHR74QZCS4gF8KnpUUfTryPHfPlpYgEA/i/z2N4vfBrZ61oowDofc5M3dgs9NFlEAcT1QMoAh6MB9ptBx1sb7s1uHwGgHtDvG38P7itLTXnEAlBZOTyKyxFSmbL+br1rgTdxAx434HEDHjfgUT4BQbqZUVqIBh0AAAAASUVORK5CYII=",
+   "description": "Real UAT QR sample (2026-10-19); any ≥100-char base64 works on the local stub"
   }
  ]
 }

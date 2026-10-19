@@ -68,15 +68,6 @@ services:
       TRACKWIZZ_MOCK_PORT: "8099"
     ports: ["8099:8099"]
 
-  mfcentral-mock:
-    image: ${WMC_PMS_IMAGE:-wmc-pms:local}
-    build: .
-    command: ["mock-mfcentral"]
-    environment:
-      MFCENTRAL_MOCK_HOST: 0.0.0.0
-      MFCENTRAL_MOCK_PORT: "4011"
-    ports: ["4011:4011"]
-
   migrate:
     image: ${WMC_PMS_IMAGE:-wmc-pms:local}
     build: .
@@ -101,8 +92,6 @@ services:
         condition: service_healthy
       wiremock:
         condition: service_healthy
-      mfcentral-mock:
-        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
       interval: 5s
@@ -124,8 +113,6 @@ services:
       wiremock:
         condition: service_healthy
       trackwizz-mock:
-        condition: service_started
-      mfcentral-mock:
         condition: service_started
 
 volumes:

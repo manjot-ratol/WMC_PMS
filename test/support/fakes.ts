@@ -1168,9 +1168,12 @@ export class FakeRenderer implements DocumentRendererPort {
 }
 
 /* ---------- Phase 9 fakes ---------- */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type {
   CasRequest,
   CasRequestResult,
+  HandoffPayload,
   MfCentralGatewayPort,
   ValidateQrRequest,
 } from '../../src/application/ports/mfcentral-gateway.port';
@@ -1199,6 +1202,14 @@ export class FakePortfolio implements PortfolioRepositoryPort {
       [...this.imports.values()].find((i) => i.clientRefNo === ref) ?? null,
     );
   }
+  findImportByProviderRequestId(
+    reqId: string,
+  ): Promise<PortfolioImport | null> {
+    return Promise.resolve(
+      [...this.imports.values()].find((i) => i.providerRequestId === reqId) ??
+        null,
+    );
+  }
   latestImport(applicationId: string): Promise<PortfolioImport | null> {
     return Promise.resolve(
       [...this.imports.values()]
@@ -1224,31 +1235,35 @@ export class FakePortfolio implements PortfolioRepositoryPort {
 }
 export class FakeMfCentral implements MfCentralGatewayPort {
   readonly requests: CasRequest[] = [];
+  readonly qrRequests: ValidateQrRequest[] = [];
   /** Set to make newCasRequest throw (e.g. a PartnerRejectedError). */
   failWith?: Error;
-  /** Plaintext returned by decrypt for a given cipher; unknown ciphers throw. */
-  readonly plaintexts = new Map<string, string>();
+  /** Set to make validateQrCode throw. */
+  qrFailWith?: Error;
+  /** What validateQrCode answers; defaults to the real UAT statement fixture. */
+  statement: unknown = JSON.parse(
+    fs.readFileSync(
+      path.resolve(__dirname, '../fixtures/mfcentral/cas-summary.sample.json'),
+      'utf8',
+    ),
+  );
   newCasRequest(req: CasRequest): Promise<CasRequestResult> {
     this.requests.push(req);
     if (this.failWith) return Promise.reject(this.failWith);
-    const reqId = `${4000000000 + this.requests.length}`;
+    const reqId = `${3400000 + this.requests.length}`;
     return Promise.resolve({
       reqId,
+      otpRef: `otp-${reqId}`,
       clientRefNo: req.clientRefNo,
-      status: 'Success',
       raw: {},
     });
   }
   validateQrCode(req: ValidateQrRequest): Promise<CasRequestResult> {
-    return Promise.resolve({ reqId: req.reqId, raw: {} });
+    this.qrRequests.push(req);
+    if (this.qrFailWith) return Promise.reject(this.qrFailWith);
+    return Promise.resolve({ reqId: req.reqId, raw: this.statement });
   }
-  buildRedirectUrl(reqId: string, clientRefNo: string): string {
-    return `http://mfc.test/investor?reqId=${reqId}&clientRefNo=${clientRefNo}`;
-  }
-  decrypt(encrypted: string): Promise<string> {
-    const p = this.plaintexts.get(encrypted);
-    return p === undefined
-      ? Promise.reject(new Error('cannot decrypt'))
-      : Promise.resolve(p);
+  buildHandoffUrl(payload: HandoffPayload): string {
+    return `http://mfc.test/api/auth/start?data=${payload.reqId}.${payload.otpRef}.${payload.clientRefNo}`;
   }
 }

@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { createCipheriv, randomBytes } from 'node:crypto';
 import type {
   CasRequest,
   CasRequestResult,
+  HandoffPayload,
   MfCentralCryptoPort,
   MfCentralGatewayPort,
   ValidateQrRequest,
@@ -9,6 +11,7 @@ import type {
 import { partnersConfig } from '../../../common/config/partners.config';
 import {
   DependencyUnavailableError,
+  InternalError,
   PartnerRejectedError,
 } from '../../../common/errors/app-error';
 import { HttpClientService } from '../../../common/http/http-client.service';
@@ -81,11 +84,28 @@ export class MfCentralGateway implements MfCentralGatewayPort {
   decrypt(encrypted: string): Promise<string> {
     return this.crypto.decrypt(encrypted);
   }
-  buildRedirectUrl(reqId: string, clientRefNo: string): string {
-    const u = new URL(this.cfg.appUrl);
-    u.searchParams.set('reqId', reqId);
-    u.searchParams.set('clientRefNo', clientRefNo);
-    return u.toString();
+  buildHandoffUrl(payload: HandoffPayload): string {
+    const key = Buffer.from(this.cfg.urlEncryptionKey, 'utf8');
+    if (key.length !== 32)
+      throw new InternalError('MFCENTRAL_URL_ENCRYPTION_KEY must be 32 bytes');
+    const body = JSON.stringify({
+      reqId: payload.reqId,
+      otpRef: payload.otpRef,
+      token: '',
+      clientRefNo: payload.clientRefNo,
+      pan: payload.pan,
+      pekrn: payload.pekrn ?? '',
+      email: payload.email ?? '',
+      mobile: payload.mobile ?? '',
+      redirectUrl: payload.redirectUrl,
+    });
+    const iv = randomBytes(16);
+    const cipher = createCipheriv('aes-256-cbc', key, iv);
+    const ct = Buffer.concat([cipher.update(body, 'utf8'), cipher.final()]);
+    const data = encodeURIComponent(
+      `${iv.toString('hex')}:${ct.toString('hex')}`,
+    );
+    return `${this.cfg.appUrl}/api/auth/start?data=${data}`;
   }
 
   /** OAuth2 password grant (collection: username/password/grant_type form) with HTTP Basic client credentials. */

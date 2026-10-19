@@ -157,20 +157,31 @@ describe('Phase 9 controllers (mocked services and guards)', () => {
         byAssetClass: [
           { assetClass: 'EQUITY', marketValueInr: 200, weightPct: 100 },
         ],
+        byAmc: [
+          { amc: 'A', marketValueInr: 200, weightPct: 100, schemeCount: 1 },
+        ],
         holdings: [
           {
             amc: 'A',
             schemeName: 'S',
+            schemeType: 'Equity(G)',
             isin: 'INF1',
             folioMasked: '••••4567',
             assetClass: 'EQUITY',
+            plan: 'DIRECT',
             units: 10,
             nav: 20,
             navDate: '2026-10-17',
             marketValueInr: 200,
             costValueInr: 150,
+            gainInr: 50,
+            gainPct: 33.3,
+            rta: 'CAMS',
+            demat: false,
           },
         ],
+        partial: true,
+        notice: 'partial',
       },
     });
     const res = await request(app.getHttpServer())
@@ -180,6 +191,8 @@ describe('Phase 9 controllers (mocked services and guards)', () => {
       status: 'AVAILABLE',
       import_id: 'pi_1',
       source: 'MFCENTRAL',
+      partial: true,
+      notice: 'partial',
       as_of: '2026-10-18',
       investor: { name: 'V', pan_masked: 'AB••••••4F' },
       totals: {
@@ -193,18 +206,27 @@ describe('Phase 9 controllers (mocked services and guards)', () => {
       by_asset_class: [
         { asset_class: 'EQUITY', market_value_inr: 200, weight_pct: 100 },
       ],
+      by_amc: [
+        { amc: 'A', market_value_inr: 200, weight_pct: 100, scheme_count: 1 },
+      ],
       holdings: [
         {
           amc: 'A',
           scheme_name: 'S',
+          scheme_type: 'Equity(G)',
           isin: 'INF1',
           folio_masked: '••••4567',
           asset_class: 'EQUITY',
+          plan: 'DIRECT',
           units: 10,
           nav: 20,
           nav_date: '2026-10-17',
           market_value_inr: 200,
           cost_value_inr: 150,
+          gain_inr: 50,
+          gain_pct: 33.3,
+          rta: 'CAMS',
+          demat: false,
         },
       ],
       next_screen: 'CONFIRM_KYC',

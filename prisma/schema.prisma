@@ -739,6 +739,7 @@ model PortfolioImport {
   providerRequestId String?   @map("provider_request_id")
   authorisationUrl  String?   @map("authorisation_url")
   failureCategory   String?   @map("failure_category")
+  lastError         String?   @map("last_error")
   expiresAt         DateTime  @map("expires_at") @db.Timestamptz
   createdAt         DateTime  @map("created_at") @db.Timestamptz
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz

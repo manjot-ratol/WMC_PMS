@@ -1,0 +1,154 @@
+{
+  "mappings": [
+    {
+      "name": "mfcentral-token",
+      "request": {
+        "method": "POST",
+        "urlPath": "/mfcentral/oauth/token"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "access_token": "local-mfc-token",
+          "token_type": "bearer",
+          "expires_in": 3600
+        }
+      }
+    },
+    {
+      "name": "mfcentral-helper-encrypt (echo: the stubbed API reads plaintext)",
+      "request": {
+        "method": "POST",
+        "urlPath": "/mfcentral/api/test/encrypt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/plain"
+        },
+        "body": "{{{request.body}}}",
+        "transformers": [
+          "response-template"
+        ]
+      }
+    },
+    {
+      "name": "mfcentral-helper-decrypt (echo)",
+      "request": {
+        "method": "POST",
+        "urlPath": "/mfcentral/api/test/decrypt"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/plain"
+        },
+        "body": "{{{request.body}}}",
+        "transformers": [
+          "response-template"
+        ]
+      }
+    },
+    {
+      "name": "mfcentral-helper-signature",
+      "request": {
+        "method": "POST",
+        "urlPath": "/mfcentral/api/test/generateSignature"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "x-jws-signature": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImxvY2FsIiwiYjY0IjpmYWxzZSwiY3JpdCI6WyJiNjQiXX0..local-detached-signature"
+        }
+      }
+    },
+    {
+      "name": "mfcentral-newCasRequest-rejected (PAN digits 9999 \u2192 UAT's generic 422)",
+      "priority": 5,
+      "request": {
+        "method": "POST",
+        "urlPath": "/mfcentral/api/client/V1/newCasRequest",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": "$[?(@.request =~ /.*[A-Z]{5}9999[A-Z].*/)]"
+          }
+        ]
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "response": "{\"reqId\":null,\"errors\":[{\"code\":\"422\",\"message\":\"Invalid Input\"}]}"
+        }
+      }
+    },
+    {
+      "name": "mfcentral-newCasRequest (reqId = clientRefNo so local runs can drive the return leg)",
+      "priority": 10,
+      "request": {
+        "method": "POST",
+        "urlPath": "/mfcentral/api/client/V1/newCasRequest"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "transformers": [
+          "response-template"
+        ],
+        "jsonBody": {
+          "reqId": "{{jsonPath (jsonPath request.body '$.request') '$.clientRefNo'}}",
+          "otpRef": "local-otp-ref",
+          "userSubjectReference": "local-user-subject",
+          "clientRefNo": "{{jsonPath (jsonPath request.body '$.request') '$.clientRefNo'}}"
+        }
+      }
+    },
+    {
+      "name": "mfcentral-validateQRCode-rejected (qrCode starting with the base64 of 'BADQR')",
+      "priority": 5,
+      "request": {
+        "method": "POST",
+        "urlPath": "/mfcentral/api/client/V1/validateQRCode",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": "$[?(@.request =~ /.*QkFEUVI.*/)]"
+          }
+        ]
+      },
+      "response": {
+        "status": 422,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "response": "{\"reqId\":null,\"errors\":[{\"code\":\"422\",\"message\":\"Failed to Validate QR code\"}]}"
+        }
+      }
+    },
+    {
+      "name": "mfcentral-validateQRCode (the real UAT statement shape, PAN stripped)",
+      "priority": 10,
+      "request": {
+        "method": "POST",
+        "urlPath": "/mfcentral/api/client/V1/validateQRCode"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "bodyFileName": "mfcentral-cas-summary.json"
+      }
+    }
+  ]
+}

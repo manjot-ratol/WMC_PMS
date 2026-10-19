@@ -45,6 +45,7 @@ export const partnersConfig = registerAs('partners', () => {
       redirectUrl: e.MFCENTRAL_REDIRECT_URL,
       returnUrl: e.MFCENTRAL_RETURN_URL,
       importTtlMinutes: e.PORTFOLIO_IMPORT_TTL_MINUTES,
+      urlEncryptionKey: e.MFCENTRAL_URL_ENCRYPTION_KEY,
     },
     ignosis: { timeoutMs: 30000 },
     clevertap: {

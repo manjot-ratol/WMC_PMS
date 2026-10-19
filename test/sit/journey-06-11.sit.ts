@@ -1,4 +1,6 @@
 import { createHmac, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { MessageSpy } from '../../src/infrastructure/messaging/message-spy';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { startSitApp, type SitApp } from './setup/test-app';
@@ -10,6 +12,11 @@ const json = (res: { body: unknown }): Json => res.body as Json;
 const errorCode = (res: { body: unknown }): string =>
   (res.body as { error: { code: string } }).error.code;
 const idem = () => randomUUID();
+/** The QR image MF Central UAT let the investor download on 2026-10-19 (real sample). */
+const QR_SAMPLE = readFileSync(
+  resolve(__dirname, '../fixtures/mfcentral/qr-sample.png.b64'),
+  'utf8',
+).trim();
 
 /** Screens 06–11 with the real worker consuming outbox events and WireMock standing in for Digio. */
 describe('SIT: journey screens 06-11', () => {
@@ -154,7 +161,7 @@ describe('SIT: journey screens 06-11', () => {
     ).toHaveLength(1);
   });
 
-  it('06A: MF Central import through the mock (consent → callback → worker), 06B: masked dashboard, then CONFIRM_KYC', async () => {
+  it('06A: MF Central import (consent → hand-off → return leg → QR upload, UAT API stubbed in WireMock), 06B: masked dashboard, then CONFIRM_KYC', async () => {
     const base = `/v1/onboarding/applications/${applicationId}`;
     const started = json(
       await sit
@@ -170,7 +177,9 @@ describe('SIT: journey screens 06-11', () => {
       next_screen: 'PORTFOLIO_IMPORT',
     });
     const importId = started.import_id as string;
-    expect(started.authorisation_url).toContain(`/investor?reqId=`);
+    // the encrypted hand-off to MF Central's page (the stub answers reqId = clientRefNo)
+    expect(started.authorisation_url).toContain('/api/auth/start?data=');
+    expect(started.authorisation_url).not.toContain(pan);
     // the KRA lookup already finished, but the customer is still inside the import: resume stays on 06A
     expect(
       json(await sit.http().get(base).set(auth()).expect(200)).next_screen,
@@ -187,34 +196,78 @@ describe('SIT: journey screens 06-11', () => {
           .expect(201),
       ).import_id,
     ).toBe(importId);
-    expect(
-      worker.mfcentral.calls.filter(
-        (c) => c.path === '/api/client/V1/newCasRequest',
-      ),
-    ).toHaveLength(1);
+    const casRequests = await wiremock.requestsTo(
+      '/mfcentral/api/client/V1/newCasRequest',
+    );
+    expect(casRequests).toHaveLength(1);
+    // the stubbed encrypt helper echoes the plaintext, so the CAS payload is readable here: mobile only, never both
+    const casPayload = JSON.parse(
+      (JSON.parse(casRequests[0].body) as { request: string }).request,
+    ) as Record<string, string>;
+    expect(casPayload).toMatchObject({
+      pan,
+      email: '',
+      redirectUrl: expect.stringContaining(
+        '/v1/integrations/mfcentral/callback',
+      ) as string,
+    });
+    expect(casPayload.mobile).toMatch(/^\+91\d{10}$/);
 
-    // what the mock's consent page posts to our callback when the investor approves
-    const authorised = worker.mfcentral.authorise(importId, 'APPROVE');
+    // MF Central's page sends the browser back with status + reqId only
     const cb = await sit
       .http()
-      .post('/v1/integrations/mfcentral/callback')
-      .type('form')
-      .send(authorised.fields)
+      .get('/v1/integrations/mfcentral/callback')
+      .query({ status: 'success', reqId: importId, type: 'Summary' })
       .expect(302);
     expect(cb.headers.location).toBe(
-      `http://localhost:5173/onboarding/portfolio-import?import_id=${importId}&status=received`,
+      `http://localhost:5173/onboarding/portfolio-import?import_id=${importId}&status=awaiting_qr`,
     );
-    const done = await eventually(async () => {
-      const r = json(
+    expect(
+      json(
         await sit
           .http()
           .get(`${base}/portfolio-imports/${importId}`)
           .set(auth())
           .expect(200),
-      );
-      return r.status === 'IMPORTED' ? r : null;
+      ),
+    ).toMatchObject({ status: 'AWAITING_QR', next_screen: 'PORTFOLIO_IMPORT' });
+
+    // a QR MF Central rejects keeps the import open and reports the vendor message
+    const badQr = await sit
+      .http()
+      .post(`${base}/portfolio-imports/${importId}/qr-validations`)
+      .set(auth())
+      .set('Idempotency-Key', idem())
+      .send({ qr_code: Buffer.from('BADQR'.repeat(40)).toString('base64') })
+      .expect(422);
+    expect(JSON.stringify(badQr.body)).toContain('Failed to Validate QR code');
+    expect(
+      json(
+        await sit
+          .http()
+          .get(`${base}/portfolio-imports/${importId}`)
+          .set(auth())
+          .expect(200),
+      ),
+    ).toMatchObject({
+      status: 'AWAITING_QR',
+      last_error: 'Failed to Validate QR code',
     });
-    expect(done).toMatchObject({ next_screen: 'ASSETS_DASHBOARD' });
+
+    // the investor uploads the QR image downloaded from MF Central's page
+    const done = json(
+      await sit
+        .http()
+        .post(`${base}/portfolio-imports/${importId}/qr-validations`)
+        .set(auth())
+        .set('Idempotency-Key', idem())
+        .send({ qr_code: `data:image/png;base64,${QR_SAMPLE}` })
+        .expect(200),
+    );
+    expect(done).toMatchObject({
+      status: 'IMPORTED',
+      next_screen: 'ASSETS_DASHBOARD',
+    });
     const dash = json(
       await sit.http().get(`${base}/portfolio`).set(auth()).expect(200),
     );
@@ -222,19 +275,35 @@ describe('SIT: journey screens 06-11', () => {
       status: 'AVAILABLE',
       import_id: importId,
       source: 'MFCENTRAL',
+      partial: true,
       investor: { pan_masked: `${pan.slice(0, 2)}••••••${pan.slice(-2)}` },
       next_screen: 'CONFIRM_KYC',
     });
-    expect(dash.holdings).toHaveLength(4);
+    expect(dash.holdings).toHaveLength(7);
+    expect((dash.by_amc as unknown[]).length).toBeGreaterThan(1);
     expect((dash.totals as Json).market_value_inr).toBeGreaterThan(0);
     expect(JSON.stringify(dash)).not.toContain(pan);
-    // a replayed callback is acknowledged and changes nothing
+    expect(JSON.stringify(dash)).not.toMatch(/\d{10,}/); // no full folio / account numbers
+    // a replayed return leg or upload changes nothing
     await sit
       .http()
-      .post('/v1/integrations/mfcentral/callback')
-      .type('form')
-      .send(authorised.fields)
+      .get('/v1/integrations/mfcentral/callback')
+      .query({ status: 'success', reqId: importId })
       .expect(302);
+    expect(
+      json(
+        await sit
+          .http()
+          .post(`${base}/portfolio-imports/${importId}/qr-validations`)
+          .set(auth())
+          .set('Idempotency-Key', idem())
+          .send({ qr_code: QR_SAMPLE })
+          .expect(200),
+      ).status,
+    ).toBe('IMPORTED');
+    expect(
+      await wiremock.requestsTo('/mfcentral/api/client/V1/validateQRCode'),
+    ).toHaveLength(2);
     expect(
       json(await sit.http().get(base).set(auth()).expect(200)).next_screen,
     ).toBe('CONFIRM_KYC');

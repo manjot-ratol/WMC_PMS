@@ -1,3 +1,4 @@
+import { createDecipheriv } from 'node:crypto';
 import { createVerify, generateKeyPairSync } from 'node:crypto';
 import nock from 'nock';
 import { silentLogger } from '../../../../test/support/fakes';
@@ -35,10 +36,11 @@ const cfg = (over: Record<string, unknown> = {}) =>
       privateJwk: JSON.stringify(jwk),
       timeoutMs: 2000,
       cryptoMode: 'remote',
-      appUrl: 'https://uatapp.mfcentral.com',
+      appUrl: 'https://mfc-cas-uat.mfcentral.com',
       redirectUrl: 'http://localhost:3000/v1/integrations/mfcentral/callback',
       returnUrl: 'http://localhost:5173/onboarding/portfolio-import',
       importTtlMinutes: 15,
+      urlEncryptionKey: 'local-url-encryption-key-32bytes',
       ...over,
     },
   }) as never;
@@ -83,7 +85,7 @@ describe('MfCentralGateway (remote helper crypto, as in the UAT collection)', ()
         signature: 'hdr..sig',
         request: 'ENC_REQ',
       })
-      .matchHeader('Origin', 'https://uatapp.mfcentral.com')
+      .matchHeader('Origin', 'https://mfc-cas-uat.mfcentral.com')
       .reply(200, { response: 'ENC_RES' });
     nock(BASE)
       .post('/api/test/decrypt', 'ENC_RES')
@@ -120,9 +122,55 @@ describe('MfCentralGateway (remote helper crypto, as in the UAT collection)', ()
         qrCode: 'iVBORw0K',
       }),
     ).toMatchObject({ reqId: '1', status: 'OK' });
-    expect(gw.buildRedirectUrl('3088880', 'ref1')).toBe(
-      'https://uatapp.mfcentral.com/?reqId=3088880&clientRefNo=ref1',
+    // hand-off URL: AES-256-CBC with the 32-byte URL key, <iv_hex>:<cipher_hex>, on MF Central's /api/auth/start
+    const url = new URL(
+      gw.buildHandoffUrl({
+        reqId: '3088880',
+        otpRef: 'otp-1',
+        clientRefNo: 'ref1',
+        pan: 'ABCPE1234F',
+        mobile: '+919876543210',
+        redirectUrl: 'http://cb',
+      }),
     );
+    expect(`${url.origin}${url.pathname}`).toBe(
+      'https://mfc-cas-uat.mfcentral.com/api/auth/start',
+    );
+    const [ivHex, ctHex] = url.searchParams.get('data')!.split(':');
+    const decipher = createDecipheriv(
+      'aes-256-cbc',
+      Buffer.from('local-url-encryption-key-32bytes'),
+      Buffer.from(ivHex, 'hex'),
+    );
+    const plain = JSON.parse(
+      Buffer.concat([
+        decipher.update(Buffer.from(ctHex, 'hex')),
+        decipher.final(),
+      ]).toString('utf8'),
+    ) as Record<string, unknown>;
+    expect(plain).toEqual({
+      reqId: '3088880',
+      otpRef: 'otp-1',
+      token: '',
+      clientRefNo: 'ref1',
+      pan: 'ABCPE1234F',
+      pekrn: '',
+      email: '',
+      mobile: '+919876543210',
+      redirectUrl: 'http://cb',
+    });
+    expect(() =>
+      new MfCentralGateway(
+        http(),
+        cfg({ urlEncryptionKey: 'short' }),
+      ).buildHandoffUrl({
+        reqId: '1',
+        otpRef: 'o',
+        clientRefNo: 'c',
+        pan: 'ABCPE1234F',
+        redirectUrl: 'http://cb',
+      }),
+    ).toThrow('32 bytes');
   });
   it('decrypts an encrypted validation rejection and surfaces the vendor errors', async () => {
     tokenStub();

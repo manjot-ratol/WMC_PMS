@@ -20,6 +20,7 @@ import { ApiErrorDto } from '../../shared/api-error.dto';
 import {
   PortfolioImportDto,
   PortfolioImportStatusDto,
+  QrValidationDto,
   PortfolioResponseDto,
   PortfolioSkipResponseDto,
 } from './portfolio.dto';
@@ -76,6 +77,31 @@ export class PortfolioController {
     return { status: r.status, next_screen: r.nextScreen };
   }
 
+  @Post('portfolio-imports/:import_id/qr-validations')
+  @HttpCode(HttpStatus.OK)
+  @Idempotent()
+  @ApiOperation({
+    summary:
+      'Screen 06A: upload the QR image downloaded from MF Central; the backend validates it with MF Central and imports the statement',
+  })
+  @ApiResponse({ status: 200, type: PortfolioImportStatusDto })
+  @ApiResponse({ status: 404, type: ApiErrorDto })
+  async validateQr(
+    @Param('application_id') applicationId: string,
+    @Param('import_id') importId: string,
+    @Body() body: QrValidationDto,
+    @CurrentPrincipal() p: Principal,
+  ): Promise<PortfolioImportStatusDto> {
+    return toDto(
+      await this.service.validateQr({
+        applicationId,
+        customerId: p.id,
+        importId,
+        qrCode: body.qr_code,
+      }),
+    );
+  }
+
   @Get('portfolio-imports/:import_id')
   @ApiOperation({
     summary:
@@ -109,6 +135,8 @@ export class PortfolioController {
       status: r.status,
       import_id: r.importId,
       source: 'MFCENTRAL',
+      partial: d?.partial,
+      notice: d?.notice,
       as_of: d?.asOf,
       investor: d
         ? { name: d.investor.name, pan_masked: d.investor.panMasked }
@@ -128,17 +156,29 @@ export class PortfolioController {
         market_value_inr: s.marketValueInr,
         weight_pct: s.weightPct,
       })),
+      by_amc: d?.byAmc.map((s) => ({
+        amc: s.amc,
+        market_value_inr: s.marketValueInr,
+        weight_pct: s.weightPct,
+        scheme_count: s.schemeCount,
+      })),
       holdings: d?.holdings.map((h) => ({
         amc: h.amc,
         scheme_name: h.schemeName,
         isin: h.isin,
         folio_masked: h.folioMasked,
         asset_class: h.assetClass,
+        scheme_type: h.schemeType,
+        plan: h.plan,
         units: h.units,
         nav: h.nav,
         nav_date: h.navDate,
         market_value_inr: h.marketValueInr,
         cost_value_inr: h.costValueInr,
+        gain_inr: h.gainInr,
+        gain_pct: h.gainPct,
+        rta: h.rta,
+        demat: h.demat,
       })),
       next_screen: r.nextScreen,
     };
@@ -150,6 +190,7 @@ function toDto(v: PortfolioImportView): PortfolioImportStatusDto {
     import_id: v.importId,
     status: v.status,
     failure_category: v.failureCategory,
+    last_error: v.lastError,
     authorisation_url: v.authorisationUrl,
     expires_at: v.expiresAt?.toISOString(),
     next_screen: v.nextScreen,

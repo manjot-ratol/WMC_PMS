@@ -13,7 +13,10 @@ import {
   type OnboardingApplication,
 } from '../../domain/onboarding/application';
 import type { Screen } from '../../domain/onboarding/screens';
-import type { PortfolioSnapshotData } from '../../domain/portfolio/cas-parser';
+import {
+  parseCasSummary,
+  type PortfolioSnapshotData,
+} from '../../domain/portfolio/cas-parser';
 import {
   effectiveStatus,
   importNextScreen,
@@ -21,6 +24,7 @@ import {
   type PortfolioFailureCategory,
   type PortfolioImport,
   type PortfolioImportStatus,
+  type ReturnEvaluation,
 } from '../../domain/portfolio/portfolio-import';
 import { ID_PREFIX } from '../../domain/shared/public-id';
 import { ANALYTICS, type AnalyticsPort } from '../ports/analytics.port';
@@ -48,6 +52,10 @@ import {
   type MfCentralGatewayPort,
 } from '../ports/mfcentral-gateway.port';
 import {
+  OBJECT_STORAGE,
+  type ObjectStoragePort,
+} from '../ports/object-storage.port';
+import {
   PORTFOLIO_REPOSITORY,
   type PortfolioRepositoryPort,
 } from '../ports/portfolio.repository.port';
@@ -64,6 +72,7 @@ export interface PortfolioImportView {
   importId: string;
   status: PortfolioImportStatus;
   failureCategory?: PortfolioFailureCategory;
+  lastError?: string;
   authorisationUrl?: string;
   expiresAt?: Date;
   nextScreen: Screen;
@@ -76,8 +85,10 @@ export interface PortfolioView {
 }
 
 /**
- * Screen 06A/06B: consent-driven MF Central CAS import after PAN identity. The import is optional for the
- * journey (skip completes the step); holdings are shown back masked and never reach analytics.
+ * Screens 06A/06B: MF Central CAS import after PAN identity, as the MFC-CAS integration document describes it:
+ * `newCasRequest` → encrypted hand-off to MF Central's page (OTP, data choice, QR download) → MF Central returns the
+ * browser with a status → the customer uploads the QR → `validateQRCode` returns the statement. The step is optional
+ * (skip completes it); holdings are shown back masked and never reach analytics.
  */
 @Injectable()
 export class PortfolioImportService {
@@ -95,6 +106,7 @@ export class PortfolioImportService {
     @Inject(PORTFOLIO_REPOSITORY)
     private readonly imports: PortfolioRepositoryPort,
     @Inject(MFCENTRAL_GATEWAY) private readonly mfcentral: MfCentralGatewayPort,
+    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStoragePort,
     @Inject(AUDIT) private readonly audit: AuditPort,
     @Inject(ANALYTICS) private readonly analytics: AnalyticsPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
@@ -140,19 +152,22 @@ export class PortfolioImportService {
       createdAt: now,
       updatedAt: now,
     };
+    // MF Central takes mobile OR email, never both; the verified phone is the investor's OTP channel.
+    const contact = {
+      mobile: customer.phone,
+      email: customer.phone
+        ? undefined
+        : customer.emailVerifiedAt
+          ? customer.email
+          : undefined,
+    };
 
     let created: PortfolioImport;
     try {
       const result = await this.mfcentral.newCasRequest({
         clientRefNo: id,
         pan: identity.pan,
-        // MF Central takes mobile OR email, never both; the verified phone is the investor's OTP channel.
-        mobile: customer.phone,
-        email: customer.phone
-          ? undefined
-          : customer.emailVerifiedAt
-            ? customer.email
-            : undefined,
+        ...contact,
         redirectUrl: this.partners.mfcentral.redirectUrl,
       });
       if (!result.reqId)
@@ -160,7 +175,14 @@ export class PortfolioImportService {
       created = {
         ...base,
         providerRequestId: result.reqId,
-        authorisationUrl: this.mfcentral.buildRedirectUrl(result.reqId, id),
+        authorisationUrl: this.mfcentral.buildHandoffUrl({
+          reqId: result.reqId,
+          otpRef: result.otpRef ?? '',
+          clientRefNo: id,
+          pan: identity.pan,
+          ...contact,
+          redirectUrl: this.partners.mfcentral.redirectUrl,
+        }),
       };
     } catch (err) {
       if (!(err instanceof PartnerRejectedError)) throw err; // transport failures: nothing recorded, 503
@@ -205,6 +227,198 @@ export class PortfolioImportService {
     return this.view(created, app, now);
   }
 
+  /** The return leg from MF Central's page; keyed on their `reqId` because the redirect carries no clientRefNo. */
+  async markReturned(
+    evaluation: ReturnEvaluation,
+  ): Promise<{ importId?: string; status?: PortfolioImportStatus }> {
+    if (evaluation.outcome === 'INVALID' || !evaluation.reqId) return {};
+    const imp = await this.imports.findImportByProviderRequestId(
+      evaluation.reqId,
+    );
+    if (!imp) return {};
+    const now = this.clock.now();
+    if (!isOpen(imp, now)) return { importId: imp.id, status: imp.status };
+    if (evaluation.outcome === 'SUCCESS') {
+      if (imp.status === 'AWAITING_QR')
+        return { importId: imp.id, status: imp.status };
+      await this.uow.run(async (tx) => {
+        await this.imports.updateImport(
+          { ...imp, status: 'AWAITING_QR', updatedAt: now },
+          tx,
+        );
+        await this.audit.append(
+          {
+            actorType: 'PARTNER',
+            actorId: 'mfcentral',
+            action: 'portfolio_import.returned',
+            aggregateType: 'application',
+            aggregateId: imp.applicationId,
+            details: { importId: imp.id, type: evaluation.type },
+          },
+          tx,
+        );
+      });
+      return { importId: imp.id, status: 'AWAITING_QR' };
+    }
+    await this.uow.run(async (tx) => {
+      const app = await this.applications.findById(imp.applicationId, tx);
+      await this.imports.updateImport(
+        {
+          ...imp,
+          status: 'DECLINED',
+          failureCategory: 'authorisation_declined',
+          lastError: evaluation.message,
+          updatedAt: now,
+          completedAt: now,
+        },
+        tx,
+      );
+      // Declining (or an expired MF Central session) is a decision: the journey moves on.
+      if (app) await this.advanceAfterImport(app, now, tx);
+      await this.audit.append(
+        {
+          actorType: 'PARTNER',
+          actorId: 'mfcentral',
+          action: 'portfolio_import.declined',
+          aggregateType: 'application',
+          aggregateId: imp.applicationId,
+          details: { importId: imp.id, code: evaluation.code },
+        },
+        tx,
+      );
+      if (app)
+        await this.analytics.track(
+          {
+            name: 'Portfolio Import Completed',
+            identity: app.customerId,
+            applicationId: app.id,
+            screenId: SCREEN_PORTFOLIO_IMPORT,
+            outcome: 'declined',
+            safeErrorCategory: 'authorisation_declined',
+          },
+          tx,
+        );
+    });
+    return { importId: imp.id, status: 'DECLINED' };
+  }
+
+  /** The customer uploads the QR image MF Central let them download; `validateQRCode` turns it into the statement. */
+  async validateQr(cmd: {
+    applicationId: string;
+    customerId: string;
+    importId: string;
+    qrCode: string;
+  }): Promise<PortfolioImportView> {
+    const app = await this.loadApplication(cmd.applicationId, cmd.customerId);
+    const imp = await this.imports.findImport(cmd.importId);
+    if (!imp || imp.applicationId !== app.id) throw new NotFoundError();
+    const now = this.clock.now();
+    if (imp.status === 'IMPORTED') return this.view(imp, app, now);
+    if (!isOpen(imp, now) || !imp.providerRequestId)
+      throw new ValidationError(undefined, {
+        details: {
+          reason: 'import_not_open',
+          status: effectiveStatus(imp, now),
+        },
+      });
+    const identity = await this.identities.latest(app.id);
+
+    let raw: unknown;
+    try {
+      raw = (
+        await this.mfcentral.validateQrCode({
+          clientRefNo: imp.clientRefNo,
+          reqId: imp.providerRequestId,
+          qrCode: cmd.qrCode.replace(/^data:image\/\w+;base64,/, ''),
+        })
+      ).raw;
+    } catch (err) {
+      if (!(err instanceof PartnerRejectedError)) throw err;
+      const message = vendorMessage(err) ?? 'QR code not accepted';
+      await this.imports.updateImport({
+        ...imp,
+        lastError: message,
+        updatedAt: now,
+      });
+      throw new ValidationError(message, {
+        details: { reason: 'qr_invalid', importId: imp.id },
+      });
+    }
+
+    let parsed: PortfolioSnapshotData;
+    try {
+      parsed = parseCasSummary(raw, { pan: identity?.pan ?? '', asOf: now });
+    } catch {
+      const failed: PortfolioImport = {
+        ...imp,
+        status: 'FAILED',
+        failureCategory: 'invalid_payload',
+        updatedAt: now,
+        completedAt: now,
+      };
+      await this.imports.updateImport(failed);
+      return this.view(failed, app, now);
+    }
+    const evidenceKey = `portfolio/${app.id}/${imp.id}/cas.json`;
+    await this.storage.put(
+      evidenceKey,
+      JSON.stringify(raw),
+      'application/json',
+    );
+    const imported: PortfolioImport = {
+      ...imp,
+      status: 'IMPORTED',
+      lastError: undefined,
+      updatedAt: now,
+      completedAt: now,
+    };
+    const advanced = await this.uow.run(async (tx) => {
+      const fresh = await this.imports.createSnapshot(
+        {
+          id: this.ids.prefixed(ID_PREFIX.portfolioSnapshot),
+          importId: imp.id,
+          applicationId: app.id,
+          data: parsed,
+          evidenceKey,
+          createdAt: now,
+        },
+        tx,
+      );
+      if (!fresh) return app;
+      await this.imports.updateImport(imported, tx);
+      const next = await this.advanceAfterImport(app, now, tx);
+      await this.audit.append(
+        {
+          actorType: 'CUSTOMER',
+          actorId: cmd.customerId,
+          action: 'portfolio_import.completed',
+          aggregateType: 'application',
+          aggregateId: app.id,
+          details: {
+            importId: imp.id,
+            evidenceKey,
+            folioCount: parsed.totals.folioCount,
+            schemeCount: parsed.totals.schemeCount,
+            partial: parsed.partial,
+          },
+        },
+        tx,
+      );
+      await this.analytics.track(
+        {
+          name: 'Portfolio Import Completed',
+          identity: cmd.customerId,
+          applicationId: app.id,
+          screenId: SCREEN_PORTFOLIO_IMPORT,
+          outcome: 'imported',
+        },
+        tx,
+      );
+      return next;
+    });
+    return this.view(imported, advanced, now);
+  }
+
   async get(cmd: {
     applicationId: string;
     customerId: string;
@@ -233,7 +447,11 @@ export class PortfolioImportService {
         details: { reason: 'already_imported', importId: latest.id },
       });
     const nextScreen = await this.uow.run(async (tx) => {
-      if (latest?.status === 'AWAITING_AUTHORISATION')
+      if (
+        latest &&
+        (latest.status === 'AWAITING_AUTHORISATION' ||
+          latest.status === 'AWAITING_QR')
+      )
         await this.imports.updateImport(
           { ...latest, status: 'SKIPPED', updatedAt: now, completedAt: now },
           tx,
@@ -339,11 +557,13 @@ export class PortfolioImportService {
     now: Date,
   ): Promise<PortfolioImportView> {
     const status = effectiveStatus(imp, now);
-    const open = status === 'AWAITING_AUTHORISATION';
+    const open =
+      status === 'AWAITING_AUTHORISATION' || status === 'AWAITING_QR';
     return {
       importId: imp.id,
       status,
       failureCategory: status === 'EXPIRED' ? 'expired' : imp.failureCategory,
+      lastError: imp.lastError,
       authorisationUrl: open ? imp.authorisationUrl : undefined,
       expiresAt: open ? imp.expiresAt : undefined,
       nextScreen: importNextScreen(
@@ -367,4 +587,11 @@ export class PortfolioImportService {
       });
     return app;
   }
+}
+
+function vendorMessage(err: PartnerRejectedError): string | undefined {
+  const errors = (
+    err.details as { vendorErrors?: { message?: string }[] } | undefined
+  )?.vendorErrors;
+  return errors?.[0]?.message;
 }

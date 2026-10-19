@@ -1,12 +1,23 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { classifyScheme, maskFolio, parseCasSummary } from './cas-parser';
 import {
   effectiveStatus,
-  evaluateCallback,
+  evaluateReturn,
   importNextScreen,
   isOpen,
 } from './portfolio-import';
 
 const now = new Date('2026-10-19T10:00:00Z');
+const fixture = JSON.parse(
+  fs.readFileSync(
+    path.resolve(
+      __dirname,
+      '../../../test/fixtures/mfcentral/cas-summary.sample.json',
+    ),
+    'utf8',
+  ),
+) as Record<string, unknown>;
 
 describe('portfolio import domain', () => {
   it('reads an open import past expiry as EXPIRED without writing', () => {
@@ -16,9 +27,16 @@ describe('portfolio import domain', () => {
     };
     expect(effectiveStatus(open, now)).toBe('AWAITING_AUTHORISATION');
     expect(isOpen(open, now)).toBe(true);
-    const stale = { ...open, expiresAt: now };
-    expect(effectiveStatus(stale, now)).toBe('EXPIRED');
-    expect(isOpen(stale, now)).toBe(false);
+    expect(
+      isOpen(
+        { status: 'AWAITING_QR', expiresAt: new Date(now.getTime() + 1) },
+        now,
+      ),
+    ).toBe(true);
+    expect(effectiveStatus({ ...open, expiresAt: now }, now)).toBe('EXPIRED');
+    expect(
+      effectiveStatus({ status: 'AWAITING_QR', expiresAt: now }, now),
+    ).toBe('EXPIRED');
     expect(effectiveStatus({ status: 'IMPORTED', expiresAt: now }, now)).toBe(
       'IMPORTED',
     );
@@ -27,6 +45,9 @@ describe('portfolio import domain', () => {
   it('routes to the dashboard only when imported, otherwise stays until the step completes', () => {
     expect(importNextScreen('IMPORTED', true, 'KYC_PROGRESS')).toBe(
       'ASSETS_DASHBOARD',
+    );
+    expect(importNextScreen('AWAITING_QR', false, 'KYC_PROGRESS')).toBe(
+      'PORTFOLIO_IMPORT',
     );
     expect(importNextScreen('FAILED', false, 'KYC_PROGRESS')).toBe(
       'PORTFOLIO_IMPORT',
@@ -42,154 +63,136 @@ describe('portfolio import domain', () => {
     );
   });
 
-  it('evaluates the callback conservatively', () => {
-    expect(evaluateCallback({ status: 'SUCCESS', response: 'abc' })).toEqual({
-      outcome: 'AUTHORISED',
-      cipher: 'abc',
+  it('evaluates the return leg the way the consent app sends it', () => {
+    expect(
+      evaluateReturn({ status: 'success', reqId: '3400488', type: 'Summary' }),
+    ).toEqual({
+      outcome: 'SUCCESS',
+      reqId: '3400488',
+      type: 'Summary',
     });
-    expect(evaluateCallback({ status: 'success', data: 'abc' })).toEqual({
-      outcome: 'AUTHORISED',
-      cipher: 'abc',
+    expect(evaluateReturn({ status: 'SUCCESS', reqid: '1' })).toEqual({
+      outcome: 'SUCCESS',
+      reqId: '1',
+      type: undefined,
     });
-    expect(evaluateCallback({ casData: 'abc' })).toEqual({
-      outcome: 'AUTHORISED',
-      cipher: 'abc',
+    expect(
+      evaluateReturn({
+        status: 'error',
+        code: 'ERR_SESSION',
+        message: 'expired',
+      }),
+    ).toEqual({
+      outcome: 'ERROR',
+      reqId: undefined,
+      code: 'ERR_SESSION',
+      message: 'expired',
     });
-    expect(evaluateCallback({ status: 'FAILED', response: 'abc' })).toEqual({
-      outcome: 'DECLINED',
-      category: 'authorisation_declined',
-    });
-    expect(evaluateCallback({ status: 'declined' })).toEqual({
-      outcome: 'DECLINED',
-      category: 'authorisation_declined',
-    });
-    expect(evaluateCallback({ status: 'SUCCESS' })).toEqual({
+    expect(evaluateReturn({ status: 'success' })).toEqual({
       outcome: 'INVALID',
-      category: 'invalid_payload',
     });
-    expect(evaluateCallback({})).toEqual({
-      outcome: 'INVALID',
-      category: 'invalid_payload',
-    });
+    expect(evaluateReturn({})).toEqual({ outcome: 'INVALID' });
   });
 });
 
-describe('CAS parser', () => {
-  const sample = {
-    reqId: '123',
-    clientRefNo: 'pi_1',
-    data: {
-      asOf: '2026-10-18',
-      investor: { name: 'VINOD KUMAR SINGH', pan: 'ABJPX1234J' },
-      folios: [
-        {
-          amc: 'JioBlackRock Mutual Fund',
-          folio: '1234567/89',
-          schemes: [
-            {
-              schemeName: 'JioBlackRock Flexi Cap Fund - Direct Growth',
-              isin: 'INF000000001',
-              schemeType: 'Equity',
-              units: '1,000.5',
-              nav: 25.1,
-              navDate: '2026-10-17',
-              marketValue: '25,112.55',
-              costValue: 20000,
-            },
-            {
-              schemeName: 'JioBlackRock Liquid Fund - Direct Growth',
-              isin: 'INF000000002',
-              schemeType: 'Debt',
-              units: 10,
-              nav: 1000,
-              marketValue: 10000,
-              costValue: 9900,
-            },
-          ],
-        },
-        {
-          amc: 'Other AMC',
-          folio: '99',
-          schemes: [
-            {
-              schemeName: 'Other Balanced Advantage',
-              category: 'Hybrid',
-              units: 2,
-              nav: 50,
-            },
-          ],
-        },
-        { amc: 'Skip AMC', folio: '1', schemes: [{ schemeName: 'No units' }] },
-      ],
-    },
-  };
-
-  it('normalises folios, masks identifiers and totals by asset class', () => {
-    const p = parseCasSummary(sample, { pan: 'ABJPX1234J', asOf: now });
+describe('CAS parser (MF Central validateQRCode statement)', () => {
+  it('normalises the real UAT statement: strings and numbers, closed folios dropped, masked, partial flag', () => {
+    const p = parseCasSummary(fixture, { pan: 'AQQPS7576R', asOf: now });
     expect(p.source).toBe('MFCENTRAL');
-    expect(p.asOf).toBe('2026-10-18');
+    expect(p.asOf).toBe('2026-10-19');
     expect(p.investor).toEqual({
-      name: 'VINOD KUMAR SINGH',
-      panMasked: 'AB••••••4J',
+      name: 'IXAZDQGYSECB',
+      panMasked: 'AQ••••••6R',
     });
-    expect(p.holdings).toHaveLength(3);
-    expect(p.holdings[0]).toMatchObject({
-      amc: 'JioBlackRock Mutual Fund',
-      folioMasked: '••••7/89',
+    // 9 scheme rows in the fixture, 2 are closed (no units, no value)
+    expect(p.holdings).toHaveLength(7);
+    expect(p.holdings[0]).toEqual({
+      amc: 'MFHMF Test Fund',
+      amcCode: 'H',
+      schemeName: 'HDFC Balanced Advantage Fund - Regular Plan - Growth',
+      schemeType: 'Balanced',
+      isin: 'INF179K01830',
+      folioMasked: '••••7225',
       assetClass: 'EQUITY',
-      units: 1000.5,
-      nav: 25.1,
-      marketValueInr: 25112.55,
-      costValueInr: 20000,
+      plan: 'REGULAR',
+      units: 50000,
+      nav: 10,
+      navDate: '15-Oct-2026',
+      marketValueInr: 500000,
+      costValueInr: 33000,
+      gainInr: 467000,
+      gainPct: 1415.15,
+      rta: 'CAMS',
+      demat: false,
     });
-    expect(p.holdings[2]).toMatchObject({
-      assetClass: 'HYBRID',
-      marketValueInr: 100,
-      nav: 50,
-      costValueInr: undefined,
+    const kfin = p.holdings.find((h) => h.isin === 'INF843K01AO4')!;
+    expect(kfin).toMatchObject({
+      amc: 'EDELWEISS MUTUAL FUND',
+      plan: 'DIRECT',
+      units: 29060.619,
+      marketValueInr: 3769685.38,
+      rta: 'KFIN',
     });
-    expect(p.totals).toEqual({
-      marketValueInr: 35212.55,
-      costValueInr: 29900,
-      gainInr: 5312.55,
-      gainPct: 17.8,
-      folioCount: 2,
-      schemeCount: 3,
-    });
-    expect(p.byAssetClass.map((s) => [s.assetClass, s.weightPct])).toEqual([
-      ['EQUITY', 71.3],
-      ['DEBT', 28.4],
-      ['HYBRID', 0.3],
+    expect(p.holdings.map((h) => h.assetClass)).toEqual([
+      'EQUITY',
+      'EQUITY',
+      'DEBT',
+      'EQUITY',
+      'CASH',
+      'EQUITY',
+      'DEBT',
     ]);
-    expect(JSON.stringify(p)).not.toContain('1234567');
-    expect(JSON.stringify(p)).not.toContain('ABJPX1234J');
+    expect(p.totals).toEqual({
+      marketValueInr: 21009690.85,
+      costValueInr: 5494914.42,
+      gainInr: 15514776.43,
+      gainPct: 282.3,
+      folioCount: 6,
+      schemeCount: 7,
+    });
+    expect(p.reportedTotals).toEqual({
+      marketValueInr: 3762564236369.78,
+      costValueInr: 4263599062.2,
+    });
+    expect(p.byAssetClass.map((s) => s.assetClass)).toEqual([
+      'EQUITY',
+      'CASH',
+      'DEBT',
+    ]);
+    expect(
+      p.byAssetClass[0].weightPct +
+        p.byAssetClass[1].weightPct +
+        p.byAssetClass[2].weightPct,
+    ).toBeCloseTo(100, 0);
+    expect(p.byAmc).toEqual([
+      {
+        amc: 'MFHMF Test Fund',
+        marketValueInr: 17233450,
+        weightPct: 82,
+        schemeCount: 5,
+      },
+      {
+        amc: 'EDELWEISS MUTUAL FUND',
+        marketValueInr: 3776240.85,
+        weightPct: 18,
+        schemeCount: 2,
+      },
+    ]);
+    expect(p.partial).toBe(true);
+    expect(p.notice).toContain('partially');
+    const json = JSON.stringify(p);
+    expect(json).not.toContain('AQQPS7576R');
+    expect(json).not.toContain('17057225');
+    expect(json).not.toContain('accountNo');
+    expect(json).not.toContain('AZOAJBUGBUTC');
   });
 
-  it('accepts a flat holdings list and an empty statement; rejects anything else', () => {
-    const flat = parseCasSummary(
-      {
-        holdings: [
-          {
-            amcName: 'X',
-            folioNo: '42',
-            scheme: 'X Index Fund',
-            balanceUnits: 3,
-            latestNav: 10,
-          },
-        ],
-      },
-      { pan: 'ABJPX1234J', asOf: now },
-    );
-    expect(flat.holdings[0]).toMatchObject({
-      amc: 'X',
-      folioMasked: '••••42',
-      assetClass: 'EQUITY',
-      marketValueInr: 30,
-    });
+  it('accepts an empty statement and rejects anything that is not one', () => {
     const empty = parseCasSummary(
-      { data: { folios: [] } },
+      { reqId: '1', data: [{ summary: [], schemes: [] }] },
       { pan: 'ABJPX1234J', asOf: now },
     );
+    expect(empty.holdings).toEqual([]);
     expect(empty.totals).toEqual({
       marketValueInr: 0,
       costValueInr: undefined,
@@ -198,66 +201,54 @@ describe('CAS parser', () => {
       folioCount: 0,
       schemeCount: 0,
     });
-    expect(empty.asOf).toBe('2026-10-19');
+    expect(empty.partial).toBe(false);
+    expect(empty.byAmc).toEqual([]);
     expect(() =>
       parseCasSummary('nope', { pan: 'ABJPX1234J', asOf: now }),
     ).toThrow('not_an_object');
     expect(() =>
       parseCasSummary({ reqId: '1' }, { pan: 'ABJPX1234J', asOf: now }),
-    ).toThrow('no_holdings_section');
-  });
-
-  it('tolerates missing optional fields and rejects non-list holdings sections', () => {
-    const p = parseCasSummary(
+    ).toThrow('no_data_section');
+    const odd = parseCasSummary(
       {
-        data: {
-          folios: [
-            {
-              amc: 'A',
-              folio: '1',
-              schemes: [{ scheme: 'A Liquid', units: 0, marketValue: 0 }],
-            },
-            {
-              folioNo: '2',
-              holdings: [
-                { name: 'Unknown Thing', units: '1,0', currentValue: 'abc' },
-              ],
-            },
-            { amc: 'C', schemes: 'not-a-list' },
-            'junk',
-          ],
-        },
+        data: [
+          'junk',
+          {
+            schemes: [
+              'junk',
+              {
+                schemeName: 'X Fund',
+                closingBalance: '1',
+                currentMktValue: 'abc',
+                assetType: 'weird',
+                schemeType: 'Gilt',
+                planMode: 'X',
+                isDemat: 'Y',
+              },
+            ],
+          },
+        ],
       },
       { pan: 'ABJPX1234J', asOf: now },
     );
-    expect(p.holdings).toEqual([
-      expect.objectContaining({
-        amc: 'A',
-        schemeName: 'A Liquid',
-        units: 0,
-        nav: 0,
-        marketValueInr: 0,
-        assetClass: 'DEBT',
-      }),
-    ]);
-    expect(p.investor).toEqual({ name: undefined, panMasked: 'AB••••••4J' });
-    expect(p.totals.folioCount).toBe(1);
-    expect(p.byAssetClass).toEqual([
-      { assetClass: 'DEBT', marketValueInr: 0, weightPct: 0 },
-    ]);
-    expect(() =>
-      parseCasSummary({ folios: 'nope' }, { pan: 'ABJPX1234J', asOf: now }),
-    ).toThrow('no_holdings_section');
-    expect(() =>
-      parseCasSummary({ data: 'nope' }, { pan: 'ABJPX1234J', asOf: now }),
-    ).toThrow('no_holdings_section');
+    expect(odd.holdings[0]).toMatchObject({
+      amc: 'UNKNOWN',
+      assetClass: 'DEBT',
+      plan: undefined,
+      marketValueInr: 0,
+      nav: 0,
+      demat: true,
+      folioMasked: '••••',
+    });
   });
 
   it('classifies schemes and masks folios', () => {
     expect(classifyScheme('ELSS Tax Saver')).toBe('EQUITY');
-    expect(classifyScheme('Overnight Fund')).toBe('DEBT');
+    expect(classifyScheme('Overnight Fund')).toBe('CASH');
     expect(classifyScheme('Balanced Advantage')).toBe('HYBRID');
-    expect(classifyScheme('Gold Fund of Funds')).toBe('OTHER');
+    expect(classifyScheme('Ultra Liquid')).toBe('CASH');
+    expect(classifyScheme('FMP(CE)')).toBe('DEBT');
+    expect(classifyScheme('Something Else')).toBe('OTHER');
     expect(classifyScheme(undefined)).toBe('OTHER');
     expect(maskFolio('12 34')).toBe('••••1234');
   });

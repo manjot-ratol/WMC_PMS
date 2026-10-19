@@ -30,10 +30,21 @@ export interface ValidateQrRequest {
 export interface MfCentralGatewayPort {
   newCasRequest(req: CasRequest): Promise<CasRequestResult>;
   validateQrCode(req: ValidateQrRequest): Promise<CasRequestResult>;
-  /** Investor hand-off URL for the MF Central app once a request exists (STEP5 of the collection, no API). */
-  buildRedirectUrl(reqId: string, clientRefNo: string): string;
-  /** Decrypts a payload MF Central produced for us (the statement delivered to `redirectUrl`). */
-  decrypt(encrypted: string): Promise<string>;
+  /**
+   * Investor hand-off (integration document step 2): the payload is AES-256-CBC encrypted with the URL key and
+   * appended as `?data=` to `{appUrl}/api/auth/start`. MF Central then runs OTP, data choice and the QR download.
+   */
+  buildHandoffUrl(payload: HandoffPayload): string;
+}
+export interface HandoffPayload {
+  reqId: string;
+  otpRef: string;
+  clientRefNo: string;
+  pan: string;
+  pekrn?: string;
+  email?: string;
+  mobile?: string;
+  redirectUrl: string;
 }
 export const MFCENTRAL_GATEWAY = Symbol('MFCENTRAL_GATEWAY');
 

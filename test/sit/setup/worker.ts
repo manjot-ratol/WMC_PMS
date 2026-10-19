@@ -3,35 +3,24 @@ import { createWorkerContext } from '../../../src/app/bootstrap';
 import { loadTestEnv } from '../../support/env';
 import { createTrackWizzMock } from './trackwizz';
 import type { TrackWizzMock } from '../../../src/infrastructure/partners/trackwizz/trackwizz-mock.server';
-import { MfCentralMock } from '../../../src/infrastructure/partners/mfcentral/mfcentral-mock.server';
 
-/** Boots the real worker (BullMQ consumers + outbox dispatcher) in-process for SIT, with the TrackWizz and MF Central mocks beside it. */
+/** Boots the real worker (BullMQ consumers + outbox dispatcher) in-process for SIT, with the TrackWizz mock beside it (MF Central is stubbed in WireMock). */
 export async function startSitWorker(): Promise<{
   ctx: INestApplicationContext;
   trackwizz: TrackWizzMock;
-  mfcentral: MfCentralMock;
   stop: () => Promise<void>;
 }> {
   loadTestEnv({ override: true });
   process.env.ENV_FILE = '.env.test';
   const trackwizz = createTrackWizzMock();
   await trackwizz.start();
-  const mfcentral = new MfCentralMock({
-    port: Number(
-      new URL(process.env.MFCENTRAL_BASE_URL ?? 'http://127.0.0.1:4011').port ||
-        4011,
-    ),
-  });
-  await mfcentral.start();
   const ctx = await createWorkerContext();
   return {
     ctx,
     trackwizz,
-    mfcentral,
     stop: async () => {
       await ctx.close();
       await trackwizz.stop();
-      await mfcentral.stop();
     },
   };
 }

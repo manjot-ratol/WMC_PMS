@@ -57,6 +57,10 @@ describeWithDb('Phase 9 repositories (docker postgres)', () => {
       completedAt: undefined,
     });
     expect((await repo.findImportByClientRef(`pi${ns}`))?.id).toBe(imp.id);
+    expect((await repo.findImportByProviderRequestId(`req${ns}`))?.id).toBe(
+      imp.id,
+    );
+    expect(await repo.findImportByProviderRequestId('nope')).toBeNull();
     expect((await repo.latestImport(app))?.id).toBe(imp.id);
     expect(await repo.findImport('pi_nope')).toBeNull();
     expect(await repo.findImportByClientRef('nope')).toBeNull();
@@ -64,11 +68,13 @@ describeWithDb('Phase 9 repositories (docker postgres)', () => {
       ...imp,
       status: 'FAILED',
       failureCategory: 'provider_rejected',
+      lastError: 'Failed to Validate QR code',
       completedAt: now,
     });
     expect(await repo.findImport(imp.id)).toMatchObject({
       status: 'FAILED',
       failureCategory: 'provider_rejected',
+      lastError: 'Failed to Validate QR code',
       completedAt: now,
     });
     const later: PortfolioImport = {
@@ -95,6 +101,7 @@ describeWithDb('Phase 9 repositories (docker postgres)', () => {
       providerRequestId: undefined,
       authorisationUrl: undefined,
       failureCategory: undefined,
+      lastError: undefined,
       completedAt: undefined,
     });
   });

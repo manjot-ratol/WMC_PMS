@@ -23,6 +23,10 @@ export interface PortfolioRepositoryPort {
     clientRefNo: string,
     tx?: TransactionContext,
   ): Promise<PortfolioImport | null>;
+  findImportByProviderRequestId(
+    providerRequestId: string,
+    tx?: TransactionContext,
+  ): Promise<PortfolioImport | null>;
   latestImport(
     applicationId: string,
     tx?: TransactionContext,

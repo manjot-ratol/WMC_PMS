@@ -62,6 +62,16 @@ export class PortfolioRepository implements PortfolioRepositoryPort {
     });
     return r ? toDomain(r) : null;
   }
+  async findImportByProviderRequestId(
+    providerRequestId: string,
+    tx?: TransactionContext,
+  ): Promise<PortfolioImport | null> {
+    const r = await clientOf(this.prisma, tx).portfolioImport.findFirst({
+      where: { providerRequestId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    return r ? toDomain(r) : null;
+  }
   async latestImport(
     applicationId: string,
     tx?: TransactionContext,
@@ -111,6 +121,7 @@ export class PortfolioRepository implements PortfolioRepositoryPort {
       providerRequestId: imp.providerRequestId ?? null,
       authorisationUrl: imp.authorisationUrl ?? null,
       failureCategory: imp.failureCategory ?? null,
+      lastError: imp.lastError ?? null,
       expiresAt: imp.expiresAt,
       createdAt: imp.createdAt,
       updatedAt: imp.updatedAt,
@@ -142,6 +153,7 @@ function toDomain(r: ImportRow): PortfolioImport {
     authorisationUrl: r.authorisationUrl ?? undefined,
     failureCategory: (r.failureCategory ?? undefined) as
       PortfolioFailureCategory | undefined,
+    lastError: r.lastError ?? undefined,
     expiresAt: r.expiresAt,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,

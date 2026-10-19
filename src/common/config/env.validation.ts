@@ -85,7 +85,7 @@ export class EnvSchema {
   @Transform(toInt) @IsInt() @Min(1000) MFCENTRAL_TIMEOUT_MS = 30000;
   @IsIn(['remote', 'local']) MFCENTRAL_CRYPTO_MODE: 'remote' | 'local' =
     'remote';
-  @IsString() MFCENTRAL_APP_URL = 'https://uatapp.mfcentral.com';
+  @IsString() MFCENTRAL_APP_URL = 'https://mfc-cas-uat.mfcentral.com';
   /** Browser-facing URL MF Central sends the investor back to (our callback). */
   @IsString() MFCENTRAL_REDIRECT_URL =
     'http://localhost:3000/v1/integrations/mfcentral/callback';
@@ -93,6 +93,8 @@ export class EnvSchema {
   @IsString() MFCENTRAL_RETURN_URL =
     'http://localhost:5173/onboarding/portfolio-import';
   @Transform(toInt) @IsInt() @Min(1) PORTFOLIO_IMPORT_TTL_MINUTES = 15;
+  /** 32-byte key MF Central issued for the hand-off URL payload (AES-256-CBC, used raw). */
+  @IsOptional() @IsString() MFCENTRAL_URL_ENCRYPTION_KEY = '';
 
   @Transform(toBool) @IsBoolean() CLEVERTAP_ENABLED = false;
   @IsString() CLEVERTAP_BASE_URL = 'https://in1.api.clevertap.com';

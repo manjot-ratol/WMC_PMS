@@ -12,7 +12,6 @@ export const QUEUES = {
   WEBHOOKS: 'webhook-processing',
   ACTIVATION: 'activation',
   SIGNING: 'signing-status',
-  PORTFOLIO: 'portfolio-import',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];

@@ -16,7 +16,7 @@ export class MfCentralCallbackController {
   @Post('callback')
   @ApiOperation({
     summary:
-      'MF Central return (POST form or JSON: reqId, clientRefNo, status, response); 302 to MFCENTRAL_RETURN_URL?import_id=…&status=received|unknown',
+      "MF Central's return leg (?status=success&reqId=…&type=Summary|Detailed, or ?status=error&code=…&message=…); 302 to MFCENTRAL_RETURN_URL?import_id=…&status=awaiting_qr|declined (or status=unknown|invalid)",
   })
   @ApiResponse({ status: 302 })
   async post(

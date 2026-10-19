@@ -53,3 +53,14 @@ through the in-process MF Central mock, plus the skip path on the FRESH-KYC appl
   still pending from MF Central.
 - Declining consent completes the step (the customer decided); an undecryptable or unparseable statement is
   `FAILED / invalid_payload` and keeps the customer on 06A.
+
+## Rework to the real journey (2026-10-19, after the UAT run)
+
+The placeholder flow (consent page → statement on the callback → worker job) was replaced once the real journey was proven on MF Central UAT (`newCasRequest` → `/api/auth/start?data=…` hand-off → OTP + QR download on MF Central's page → `redirectUrl?status=success&reqId=…` → `validateQRCode` with the uploaded QR):
+
+- `MfCentralGateway.buildHandoffUrl` encrypts `{reqId, otpRef, token:'', clientRefNo, pan, pekrn, email, mobile, redirectUrl}` with AES-256-CBC (`MFCENTRAL_URL_ENCRYPTION_KEY`, 32 bytes raw, random IV, `<iv_hex>:<cipher_hex>`); `MFCENTRAL_APP_URL` defaults to `https://mfc-cas-uat.mfcentral.com`.
+- Statuses: `AWAITING_AUTHORISATION → AWAITING_QR → IMPORTED | FAILED | DECLINED | EXPIRED | SKIPPED`; `last_error` (new column) keeps MF Central's QR message. The callback is status-only and keyed on `reqId` (`findImportByProviderRequestId`); the statement arrives through `POST …/portfolio-imports/{import_id}/qr-validations {qr_code}`. The `portfolio-import` queue/processor is gone.
+- `cas-parser.ts` is pinned to the real statement (`test/fixtures/mfcentral/cas-summary.sample.json`, trimmed real UAT response for reqId 3400488); the real QR sample is `test/fixtures/mfcentral/qr-sample.png.b64`.
+- The MF Central mock server was removed (owner decision: real UAT works). Local runs and SIT stub the UAT API in WireMock (`tools/wiremock/mappings/mfcentral.json`): helpers echo plaintext, `newCasRequest` answers `reqId = clientRefNo` so the return leg can be driven by hand, PAN digits `9999` → 422, `validateQRCode` serves the real statement (PAN stripped) and rejects a `qr_code` starting with the base64 of `BADQR`.
+- Verified: `npm test` (504 tests, coverage gate), lint, build, SIT (42 tests, journey 06-11 covers callback → AWAITING_QR → rejected QR → imported dashboard with `partial`/`by_amc`).
+- Still open with MF Central: whitelisting of our `redirectUrl`, production URL encryption key, and whether a `Detailed` statement changes the shape.
