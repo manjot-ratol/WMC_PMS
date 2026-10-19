@@ -8,7 +8,7 @@ import {
   MfCentralLocalCrypto,
   MFCENTRAL_LOCAL_CRYPTO_STATUS,
 } from './mfcentral-local.crypto';
-import { MfCentralGateway } from './mfcentral.gateway';
+import { MfCentralGateway, unwrapSignature } from './mfcentral.gateway';
 
 const BASE = 'http://mfc.test';
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
@@ -243,5 +243,17 @@ describe('MfCentralLocalCrypto (unverified placeholder)', () => {
         JSON.stringify(jwk),
       ).decrypt(sent!.request),
     ).toContain('ABCPE1234F');
+  });
+});
+
+describe('unwrapSignature (UAT helper wraps the JWS)', () => {
+  it('extracts x-jws-signature from the helper JSON and leaves a bare JWS alone', () => {
+    expect(unwrapSignature('{"x-jws-signature":"hdr..sig"}\n')).toBe(
+      'hdr..sig',
+    );
+    expect(unwrapSignature('{"signature":"hdr..sig"}')).toBe('hdr..sig');
+    expect(unwrapSignature(' hdr..sig ')).toBe('hdr..sig');
+    expect(unwrapSignature('{"other":1}')).toBe('{"other":1}');
+    expect(unwrapSignature('{not json')).toBe('{not json');
   });
 });

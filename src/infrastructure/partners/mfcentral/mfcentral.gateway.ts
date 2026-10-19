@@ -63,7 +63,8 @@ export class MfCentralGateway implements MfCentralGatewayPort {
       reqId: req.reqId ?? '',
       pan: req.pan,
       pekrn: req.pekrn ?? '',
-      email: req.email ?? '',
+      // UAT rejects a request carrying both ("Please enter mobile number or Email Id."): mobile wins.
+      email: req.mobile ? '' : (req.email ?? ''),
       mobile: req.mobile ?? '',
       fromDate: req.fromDate ?? '',
       toDate: req.toDate ?? '',
@@ -199,6 +200,7 @@ export class MfCentralGateway implements MfCentralGatewayPort {
       reqId: str(decrypted.reqId),
       clientRefNo: str(decrypted.clientRefNo),
       status: str(decrypted.status),
+      otpRef: str(decrypted.otpRef),
       raw: decrypted,
     };
   }
@@ -256,8 +258,11 @@ class RemoteHelperCrypto implements MfCentralCryptoPort {
       plainJson,
     );
   }
-  sign(encrypted: string): Promise<string> {
-    return this.gw.helper(MFC_PATHS.sign, 'PrivateKey', encrypted);
+  /** The helper answers `{"x-jws-signature": "<detached JWS>"}` on UAT (observed 2026-10-19); older builds returned the bare JWS. */
+  async sign(encrypted: string): Promise<string> {
+    return unwrapSignature(
+      await this.gw.helper(MFC_PATHS.sign, 'PrivateKey', encrypted),
+    );
   }
   decrypt(encrypted: string): Promise<string> {
     return this.gw.helper(
@@ -266,6 +271,18 @@ class RemoteHelperCrypto implements MfCentralCryptoPort {
       encrypted,
     );
   }
+}
+export function unwrapSignature(raw: string): string {
+  const text = raw.trim();
+  if (!text.startsWith('{')) return text;
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const sig = parsed['x-jws-signature'] ?? parsed.signature;
+    if (typeof sig === 'string' && sig) return sig;
+  } catch {
+    /* not JSON: use as is */
+  }
+  return text;
 }
 const str = (v: unknown): string | undefined =>
   typeof v === 'string' || typeof v === 'number' ? String(v) : undefined;

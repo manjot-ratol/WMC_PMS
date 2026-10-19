@@ -140,7 +140,7 @@ export class MfCentralMock {
         return json(res, 401, { error: 'unauthorized' });
       if (path === '/api/test/encrypt') return text(res, mockEncrypt(body));
       if (path === '/api/test/generateSignature')
-        return text(res, mockSign(body));
+        return json(res, 200, { 'x-jws-signature': mockSign(body) }); // UAT wraps the JWS like this
       if (path === '/api/test/decrypt') {
         const plain = mockDecrypt(body.trim());
         if (!plain || mockEncrypt(plain) !== body.trim().replace(/=+$/, ''))
@@ -218,25 +218,29 @@ export class MfCentralMock {
   ): void {
     const r = this.openEnvelope(req, body, res);
     if (!r) return;
-    const reqId = String(
-      4_000_000_000 + Math.floor(Math.random() * 999_999_999),
-    );
+    const reqId = String(3_400_000 + Math.floor(Math.random() * 99_999));
     const pan = (r.pan ?? '').toUpperCase();
-    const invalid =
+    const reject = (message: string) =>
+      json(res, 422, {
+        response: mockEncrypt(
+          JSON.stringify({ reqId, errors: [{ code: '422', message }] }),
+        ),
+      });
+    if (
       !PAN.test(pan) ||
       pan.slice(5, 9) === '9999' ||
       !r.redirectUrl ||
-      !r.clientRefNo ||
-      !/^\+?\d{10,13}$/.test(r.mobile ?? '');
-    if (invalid)
-      return json(res, 422, {
-        response: mockEncrypt(
-          JSON.stringify({
-            reqId,
-            errors: [{ code: '422', message: 'Invalid Input' }],
-          }),
-        ),
-      });
+      !r.clientRefNo
+    )
+      return reject('Invalid Input');
+    const hasMobile = /^\+?\d{10,12}$/.test(r.mobile ?? '');
+    const hasEmail = /^[^@\s]+@[^@\s]+$/.test(r.email ?? '');
+    if (hasMobile === hasEmail)
+      return reject('Please enter mobile number or Email Id.'); // UAT: exactly one of the two
+    if (
+      [...this.requests.values()].some((x) => x.clientRefNo === r.clientRefNo)
+    )
+      return reject('Duplicate clientRefNo');
     this.requests.set(reqId, {
       reqId,
       clientRefNo: r.clientRefNo,
@@ -246,13 +250,14 @@ export class MfCentralMock {
       redirectUrl: r.redirectUrl,
       createdAt: new Date().toISOString(),
     });
+    // Same shape as UAT (2026-10-19): numeric reqId, an otpRef for the OTP MF Central sends the investor.
     json(res, 200, {
       response: mockEncrypt(
         JSON.stringify({
-          reqId,
+          reqId: Number(reqId),
+          otpRef: `${reqId.slice(-8)}-mock-otp-ref`,
+          userSubjectReference: '',
           clientRefNo: r.clientRefNo,
-          status: 'Success',
-          message: 'CAS request registered; redirect the investor',
         }),
       ),
     });

@@ -189,7 +189,7 @@ describe('PortfolioImportService.start', () => {
       clientRefNo: 'pi_1',
       pan: 'ABCPE1234F',
       mobile: '+919876543210',
-      email: 'v@example.com',
+      email: undefined,
       redirectUrl: partners.mfcentral.redirectUrl,
     });
     const again = await service.start({ ...cmd, consent: true });

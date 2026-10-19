@@ -4,6 +4,7 @@ export interface CasRequest {
   reqId?: string;
   pan: string;
   pekrn?: string;
+  /** Exactly one of email / mobile is sent; mobile takes precedence (vendor rule). */
   email?: string;
   mobile?: string;
   /** DD-MMM-YYYY; required for transaction data, blank for summary data. */
@@ -15,6 +16,8 @@ export interface CasRequestResult {
   reqId?: string;
   clientRefNo?: string;
   status?: string;
+  /** UAT answers `{reqId, otpRef, userSubjectReference, clientRefNo}`: the OTP is sent to the investor by MF Central. */
+  otpRef?: string;
   /** Decrypted vendor body, retained for the caller; never logged. */
   raw: unknown;
 }

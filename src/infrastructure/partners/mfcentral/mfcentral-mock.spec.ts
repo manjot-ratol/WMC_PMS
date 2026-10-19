@@ -48,8 +48,9 @@ describe('MfCentralMock through the real gateway (remote helper crypto)', () => 
       email: 'v@example.com',
       redirectUrl: 'http://localhost:3000/v1/integrations/mfcentral/callback',
     });
-    expect(r).toMatchObject({ clientRefNo: 'pi_1', status: 'Success' });
-    expect(r.reqId).toMatch(/^\d{10}$/);
+    expect(r).toMatchObject({ clientRefNo: 'pi_1', status: undefined });
+    expect(r.reqId).toMatch(/^\d{7}$/);
+    expect(r.otpRef).toContain('mock-otp-ref');
     expect(mock.calls.map((c) => c.path)).toEqual([
       '/oauth/token',
       '/api/test/encrypt',

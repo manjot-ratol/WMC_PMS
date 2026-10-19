@@ -146,8 +146,13 @@ export class PortfolioImportService {
       const result = await this.mfcentral.newCasRequest({
         clientRefNo: id,
         pan: identity.pan,
+        // MF Central takes mobile OR email, never both; the verified phone is the investor's OTP channel.
         mobile: customer.phone,
-        email: customer.emailVerifiedAt ? customer.email : undefined,
+        email: customer.phone
+          ? undefined
+          : customer.emailVerifiedAt
+            ? customer.email
+            : undefined,
         redirectUrl: this.partners.mfcentral.redirectUrl,
       });
       if (!result.reqId)
