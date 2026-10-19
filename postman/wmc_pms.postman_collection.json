@@ -493,7 +493,7 @@
         "exec": [
          "pm.test('200', () => pm.response.to.have.status(200));",
          "const b = pm.response.json(); if (b.kyc_record_version!==undefined) pm.collectionVariables.set('kyc_record_version', b.kyc_record_version); if (b.operation_id!==undefined) pm.collectionVariables.set('operation_id', b.operation_id);",
-         "// newman/runner: re-run this request while the job is still in flight (max 20 polls); Postman app users just re-send it\nconst __st = pm.response.code===200 ? pm.response.json().status : undefined; const __k='__polls_'+pm.info.requestId; const __n=Number(pm.variables.get(__k)||0);\nif ([\"PROCESSING\"].includes(__st) && __n < 20) { pm.variables.set(__k, __n+1); postman.setNextRequest(pm.info.requestName); } else { pm.variables.set(__k, 0); }"
+         "// newman/runner: re-run this request while the job is still in flight (max 20 polls); Postman app users just re-send it\nconst __st = pm.response.code===200 ? pm.response.json().status : undefined; const __k='__polls_'+pm.info.requestId; const __n=Number(pm.variables.get(__k)||0);\nif ([\"PROCESSING\"].includes(__st) && __n < 20) { pm.variables.set(__k, __n+1); postman.setNextRequest(pm.info.requestName); setTimeout(() => {}, 1000); /* newman: wait 1 s between polls */ } else { pm.variables.set(__k, 0); }"
         ]
        }
       }
@@ -758,7 +758,7 @@
        "script": {
         "type": "text/javascript",
         "exec": [
-         "pm.test('200', () => pm.response.to.have.status(200));"
+         "pm.test('200 SKIPPED, or 422 already_imported when run after a successful import', () => pm.expect([200, 422]).to.include(pm.response.code));"
         ]
        }
       }
@@ -1090,7 +1090,7 @@
         "type": "text/javascript",
         "exec": [
          "pm.test('200', () => pm.response.to.have.status(200));",
-         "// newman/runner: re-run this request while the job is still in flight (max 20 polls); Postman app users just re-send it\nconst __st = pm.response.code===200 ? pm.response.json().status : undefined; const __k='__polls_'+pm.info.requestId; const __n=Number(pm.variables.get(__k)||0);\nif ([\"PROCESSING\", \"PENDING\", \"IN_PROGRESS\", \"REQUESTED\"].includes(__st) && __n < 20) { pm.variables.set(__k, __n+1); postman.setNextRequest(pm.info.requestName); } else { pm.variables.set(__k, 0); }"
+         "// newman/runner: re-run this request while the job is still in flight (max 20 polls); Postman app users just re-send it\nconst __st = pm.response.code===200 ? pm.response.json().status : undefined; const __k='__polls_'+pm.info.requestId; const __n=Number(pm.variables.get(__k)||0);\nif ([\"PROCESSING\", \"PENDING\", \"IN_PROGRESS\", \"REQUESTED\"].includes(__st) && __n < 20) { pm.variables.set(__k, __n+1); postman.setNextRequest(pm.info.requestName); setTimeout(() => {}, 1000); /* newman: wait 1 s between polls */ } else { pm.variables.set(__k, 0); }"
         ]
        }
       }
@@ -1451,7 +1451,7 @@
         "type": "text/javascript",
         "exec": [
          "pm.test('200', () => pm.response.to.have.status(200));",
-         "// newman/runner: re-run this request while the job is still in flight (max 20 polls); Postman app users just re-send it\nconst __st = pm.response.code===200 ? pm.response.json().status : undefined; const __k='__polls_'+pm.info.requestId; const __n=Number(pm.variables.get(__k)||0);\nif ([\"REQUESTED\", \"IN_PROGRESS\"].includes(__st) && __n < 20) { pm.variables.set(__k, __n+1); postman.setNextRequest(pm.info.requestName); } else { pm.variables.set(__k, 0); }"
+         "// newman/runner: re-run this request while the job is still in flight (max 20 polls); Postman app users just re-send it\nconst __st = pm.response.code===200 ? pm.response.json().status : undefined; const __k='__polls_'+pm.info.requestId; const __n=Number(pm.variables.get(__k)||0);\nif ([\"REQUESTED\", \"IN_PROGRESS\"].includes(__st) && __n < 20) { pm.variables.set(__k, __n+1); postman.setNextRequest(pm.info.requestName); setTimeout(() => {}, 1000); /* newman: wait 1 s between polls */ } else { pm.variables.set(__k, 0); }"
         ]
        }
       }
@@ -1721,7 +1721,7 @@
         "type": "text/javascript",
         "exec": [
          "pm.test('200', () => pm.response.to.have.status(200));",
-         "// newman/runner: re-run this request while the job is still in flight (max 20 polls); Postman app users just re-send it\nconst __st = pm.response.code===200 ? pm.response.json().activation_status : undefined; const __k='__polls_'+pm.info.requestId; const __n=Number(pm.variables.get(__k)||0);\nif ([\"PENDING\", \"BLOCKED\", \"IN_PROGRESS\", \"NOT_STARTED\", \"READY_FOR_ACTIVATION\"].includes(__st) && __n < 20) { pm.variables.set(__k, __n+1); postman.setNextRequest(pm.info.requestName); } else { pm.variables.set(__k, 0); }"
+         "// newman/runner: re-run this request while the job is still in flight (max 20 polls); Postman app users just re-send it\nconst __st = pm.response.code===200 ? pm.response.json().activation_status : undefined; const __k='__polls_'+pm.info.requestId; const __n=Number(pm.variables.get(__k)||0);\nif ([\"PENDING\", \"BLOCKED\", \"IN_PROGRESS\", \"NOT_STARTED\", \"READY_FOR_ACTIVATION\"].includes(__st) && __n < 20) { pm.variables.set(__k, __n+1); postman.setNextRequest(pm.info.requestName); setTimeout(() => {}, 1000); /* newman: wait 1 s between polls */ } else { pm.variables.set(__k, 0); }"
         ]
        }
       }

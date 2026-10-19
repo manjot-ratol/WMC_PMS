@@ -1,4 +1,4 @@
-# wmc_pms local stack. `docker compose up -d` = everything (infra + migrate + api + worker + TrackWizz and MF Central mocks) on mocked partners.
+# wmc_pms local stack. `docker compose up -d` = everything (infra + migrate + api + worker + TrackWizz mock) on stubbed partners (Digio and MF Central in WireMock).
 # `make up` starts infra only (for running the app from source).
 services:
   postgres:
