@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Equals, IsBoolean, IsString, Length } from 'class-validator';
+import {
+  Equals,
+  IsBoolean,
+  IsOptional,
+  IsString,
+  Length,
+} from 'class-validator';
 
 export class PortfolioImportDto {
   @ApiProperty({
@@ -13,12 +19,23 @@ export class PortfolioImportDto {
 }
 export class QrValidationDto {
   @ApiProperty({
+    required: false,
     description:
-      'Base64 of the QR image the customer downloaded from MF Central (a data: URL prefix is tolerated)',
+      'JSON variant: base64 of the QR image the customer downloaded from MF Central (a data: URL prefix is tolerated). Either qr_code or the multipart file qr_image is required.',
   })
+  @IsOptional()
   @IsString()
   @Length(100, 2_000_000)
-  qr_code!: string;
+  qr_code?: string;
+  @ApiProperty({
+    required: false,
+    type: 'string',
+    format: 'binary',
+    description:
+      'multipart/form-data variant: the QR image file itself (PNG/JPEG, ≤ 2 MB)',
+  })
+  @IsOptional()
+  qr_image?: unknown;
 }
 export class PortfolioImportStatusDto {
   @ApiProperty({ example: 'pi_...' }) import_id!: string;

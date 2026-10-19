@@ -46,6 +46,7 @@ export const partnersConfig = registerAs('partners', () => {
       returnUrl: e.MFCENTRAL_RETURN_URL,
       importTtlMinutes: e.PORTFOLIO_IMPORT_TTL_MINUTES,
       urlEncryptionKey: e.MFCENTRAL_URL_ENCRYPTION_KEY,
+      testMobileOverride: testMobileOverride(e),
     },
     ignosis: { timeoutMs: 30000 },
     clevertap: {
@@ -64,3 +65,17 @@ export const partnersConfig = registerAs('partners', () => {
   };
 });
 export type PartnersConfig = ReturnType<typeof partnersConfig>;
+
+/** UAT-only hook: MF Central's test PANs accept only their registered test mobile. Never in production. */
+function testMobileOverride(e: {
+  APP_ENV: string;
+  MFCENTRAL_TEST_MOBILE_OVERRIDE: string;
+}): string | undefined {
+  const v = e.MFCENTRAL_TEST_MOBILE_OVERRIDE.trim();
+  if (!v) return undefined;
+  if (e.APP_ENV === 'production')
+    throw new Error(
+      'MFCENTRAL_TEST_MOBILE_OVERRIDE must be empty in production (UAT test hook)',
+    );
+  return v;
+}

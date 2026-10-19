@@ -1,0 +1,99 @@
+{
+  "mappings": [
+    {
+      "name": "digio-kra-check-pan-status-mfcentral-uat-pans",
+      "priority": 5,
+      "request": {
+        "method": "POST",
+        "urlPath": "/digio/v3/client/kyc/kra/v2/get_pan_status",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": "$[?(@.pan_no =~ /(AQQPS7576R|AATPJ9485B|ANKPJ4391C|AAQPH6449C|AOBPC3943B|AAAPS6436J|DZMPA3911G|BVPPB8007F)/)]"
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "pan_number": "{{jsonPath request.body '$.pan_no'}}",
+          "name": "VINOD KUMAR singh",
+          "status_code": "007",
+          "status": "Validated",
+          "status_description": "KYC details have been successfully verified. Customer can start investing. ",
+          "kra_status_code": "007",
+          "status_date": "02/06/2023 17:15:24",
+          "entry_date": "18/06/2013 17:35:19",
+          "modification_date": "10/09/2024 09:48:27",
+          "update_status": "001",
+          "kyc_mode": "0",
+          "kyc_mode_description": "Normal KYC",
+          "ipv_flag": "Y",
+          "response_date": "02/06/2023 17:15:24",
+          "total_records": "1",
+          "ref_id": "KCA25052212000311484ETY7Q83QHQCG"
+        },
+        "transformers": [
+          "response-template"
+        ]
+      }
+    },
+    {
+      "name": "digio-kra-fetch-details-mfcentral-uat-pans",
+      "priority": 5,
+      "request": {
+        "method": "POST",
+        "urlPath": "/digio/v3/client/kyc/kra/download_pan",
+        "bodyPatterns": [
+          {
+            "matchesJsonPath": "$[?(@.pan_no =~ /(AQQPS7576R|AATPJ9485B|ANKPJ4391C|AAQPH6449C|AOBPC3943B|AAAPS6436J|DZMPA3911G|BVPPB8007F)/)]"
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "jsonBody": {
+          "application_type": "I",
+          "personal_information": {
+            "pan_number": "{{jsonPath request.body '$.pan_no'}}",
+            "name": "VINOD KUMAR SINGH",
+            "dob": "16/08/1955",
+            "gender": "M"
+          },
+          "contact_information": {
+            "correspondence_address": {
+              "address_line1": "705 BHARTI APPARTMENT",
+              "city": "FARIDABAD",
+              "state": "006",
+              "pin_code": "121001"
+            }
+          },
+          "kyc_information": {
+            "kyc_mode": "0",
+            "ipv_flag": "Y",
+            "status": "Validated",
+            "status_code": "007",
+            "status_description": "KYC details have been successfully verified.",
+            "status_date": "02/06/2023 17:15:24",
+            "internal_reference": "WEBSOLICIT"
+          },
+          "kra_information": {
+            "kra_info": "CVLKRA"
+          },
+          "error_details": {
+            "error_description": "ERR-00000"
+          },
+          "ref_id": "KCA2505221202383202QRC23TJWQ7C9U"
+        },
+        "transformers": [
+          "response-template"
+        ]
+      }
+    }
+  ]
+}

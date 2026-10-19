@@ -545,7 +545,7 @@
   },
   {
    "name": "06A-06B · Portfolio import (MF Central)",
-   "description": "Real journey (verified on MF Central UAT 2026-10-19): 1) start → authorisation_url; 2) the investor completes OTP + QR download on MF Central's page, which sends the browser to our callback with status/reqId; 3) the investor uploads the QR image here → statement imported; 4) dashboard. Against the local stack the UAT API is a WireMock stub: the hand-off page does not exist, so run 'Simulate MF Central return' instead, and any base64 ≥ 100 chars is accepted as the QR except one starting with the base64 of 'BADQR'. Against real UAT set MFCENTRAL_BASE_URL/APP_URL + tenant secrets in .env, open authorisation_url in a browser (UAT OTP = 00 + last four PAN digits), download the QR and paste its base64 into qr_code_base64.",
+   "description": "Screens 06A-06B through OUR backend. Two ways to run it:\n\nREAL MF CENTRAL UAT (backend started with .env pointing at uatservices.mfcentral.com): before folder 01 set collection variable `pan` to one of MF Central's UAT test PANs (AQQPS7576R, AATPJ9485B, ANKPJ4391C, AAQPH6449C, AOBPC3943B, AAAPS6436J, DZMPA3911G, BVPPB8007F; use a new phone per run) and run 01 → 06. Then: '06A Start' → copy `authorisation_url` from the console/variable and open it in a browser → OTP = 00 + last four PAN digits (e.g. 007576) → keep 'Summary of Holdings' → download the QR image → '06A Upload the QR image (file)' with that PNG → '06A Import status' / '06B Assets dashboard'. MF Central's page then redirects the browser to MFCENTRAL_REDIRECT_URL (not needed for the upload).\n\nLOCAL STUB (docker stack / .env pointing at WireMock): there is no MF Central page; run 'Simulate MF Central return' and 'Upload the QR image (base64)' (the preset qr_code_base64 is a real UAT sample; anything ≥ 100 chars works, one starting with the base64 of 'BADQR' is rejected).",
    "item": [
     {
      "name": "06A Start portfolio import",
@@ -591,7 +591,7 @@
      ]
     },
     {
-     "name": "06A MF Central page (real UAT only: open in a browser)",
+     "name": "06A MF Central page (real UAT: open authorisation_url in a browser)",
      "request": {
       "method": "GET",
       "header": [],
@@ -623,7 +623,47 @@
      }
     },
     {
-     "name": "06A Upload the QR image",
+     "name": "06A Upload the QR image (file)",
+     "request": {
+      "method": "POST",
+      "header": [
+       {
+        "key": "Authorization",
+        "value": "Bearer {{session_token}}"
+       },
+       {
+        "key": "Idempotency-Key",
+        "value": "{{$guid}}"
+       }
+      ],
+      "url": "{{baseUrl}}/v1/onboarding/applications/{{application_id}}/portfolio-imports/{{import_id}}/qr-validations",
+      "description": "multipart/form-data with the PNG downloaded from MF Central's page as field `qr_image` (≤ 2 MB). Same response as the base64 variant: 200 {import_id, status: IMPORTED, next_screen: ASSETS_DASHBOARD}; 422 with MF Central's message if they reject the image (import stays open, see last_error on the status call).",
+      "body": {
+       "mode": "formdata",
+       "formdata": [
+        {
+         "key": "qr_image",
+         "type": "file",
+         "src": "",
+         "description": "select the QR PNG you downloaded from MF Central"
+        }
+       ]
+      }
+     },
+     "event": [
+      {
+       "listen": "test",
+       "script": {
+        "type": "text/javascript",
+        "exec": [
+         "pm.test('200 IMPORTED', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().status).to.eql('IMPORTED'); });"
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "06A Upload the QR image (base64, local stub)",
      "request": {
       "method": "POST",
       "header": [

@@ -6,8 +6,18 @@ import {
   HttpStatus,
   Param,
   Post,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiConsumes,
+  ApiHeader,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ValidationError } from '../../../common/errors/app-error';
 import {
   PortfolioImportService,
   type PortfolioImportView,
@@ -24,6 +34,14 @@ import {
   PortfolioResponseDto,
   PortfolioSkipResponseDto,
 } from './portfolio.dto';
+
+/** Multer file as the FileInterceptor hands it over (typed locally; @types/multer is not a dependency). */
+interface UploadedQrImage {
+  buffer?: Buffer;
+  mimetype?: string;
+  size?: number;
+}
+const QR_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 
 @ApiTags('onboarding')
 @ApiHeader({
@@ -80,9 +98,13 @@ export class PortfolioController {
   @Post('portfolio-imports/:import_id/qr-validations')
   @HttpCode(HttpStatus.OK)
   @Idempotent()
+  @UseInterceptors(
+    FileInterceptor('qr_image', { limits: { fileSize: QR_IMAGE_MAX_BYTES } }),
+  )
+  @ApiConsumes('application/json', 'multipart/form-data')
   @ApiOperation({
     summary:
-      'Screen 06A: upload the QR image downloaded from MF Central; the backend validates it with MF Central and imports the statement',
+      'Screen 06A: upload the QR image downloaded from MF Central (JSON base64 or multipart file); the backend validates it with MF Central and imports the statement',
   })
   @ApiResponse({ status: 200, type: PortfolioImportStatusDto })
   @ApiResponse({ status: 404, type: ApiErrorDto })
@@ -91,13 +113,20 @@ export class PortfolioController {
     @Param('import_id') importId: string,
     @Body() body: QrValidationDto,
     @CurrentPrincipal() p: Principal,
+    @UploadedFile() file?: UploadedQrImage,
   ): Promise<PortfolioImportStatusDto> {
+    const qrCode = file?.buffer ? file.buffer.toString('base64') : body.qr_code;
+    if (!qrCode)
+      throw new ValidationError(
+        'Send the QR as qr_code (base64 JSON) or as the multipart file qr_image',
+        { details: { fields: ['qr_code', 'qr_image'] } },
+      );
     return toDto(
       await this.service.validateQr({
         applicationId,
         customerId: p.id,
         importId,
-        qrCode: body.qr_code,
+        qrCode,
       }),
     );
   }

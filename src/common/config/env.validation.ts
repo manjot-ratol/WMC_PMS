@@ -95,6 +95,8 @@ export class EnvSchema {
   @Transform(toInt) @IsInt() @Min(1) PORTFOLIO_IMPORT_TTL_MINUTES = 15;
   /** 32-byte key MF Central issued for the hand-off URL payload (AES-256-CBC, used raw). */
   @IsOptional() @IsString() MFCENTRAL_URL_ENCRYPTION_KEY = '';
+  /** UAT only: MF Central's test PANs are bound to their registered test mobile; when set, every CAS request carries this mobile instead of the customer's. Refused in production. */
+  @IsOptional() @IsString() MFCENTRAL_TEST_MOBILE_OVERRIDE = '';
 
   @Transform(toBool) @IsBoolean() CLEVERTAP_ENABLED = false;
   @IsString() CLEVERTAP_BASE_URL = 'https://in1.api.clevertap.com';

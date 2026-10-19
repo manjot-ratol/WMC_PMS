@@ -163,6 +163,35 @@ describe('PortfolioImportService.start', () => {
     ).not.toContain('AQQPS7576R');
   });
 
+  it('a UAT test-mobile override replaces the customer mobile in the CAS request (email never sent)', async () => {
+    const { d, cmd } = build();
+    const svc = new PortfolioImportService(
+      d.uow,
+      d.applications,
+      d.customers,
+      d.identities,
+      d.kyc,
+      d.portfolio,
+      d.mfcentral,
+      d.storage,
+      d.audit,
+      d.analytics,
+      d.clock,
+      d.ids,
+      {
+        mfcentral: {
+          ...partners.mfcentral,
+          testMobileOverride: '+919239874560',
+        },
+      } as never,
+    );
+    await svc.start({ ...cmd, consent: true });
+    expect(d.mfcentral.requests[0]).toMatchObject({
+      mobile: '+919239874560',
+      email: undefined,
+    });
+  });
+
   it('a vendor rejection is stored as FAILED provider_rejected; a transport failure records nothing', async () => {
     const { d, service, cmd } = build();
     d.mfcentral.failWith = new PartnerRejectedError('mfcentral', '422');

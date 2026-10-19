@@ -93,6 +93,7 @@ export interface PortfolioView {
 @Injectable()
 export class PortfolioImportService {
   private readonly ttlMs: number;
+  private readonly testMobileOverride?: string;
   constructor(
     @Inject(UNIT_OF_WORK) private readonly uow: UnitOfWork,
     @Inject(APPLICATION_REPOSITORY)
@@ -115,6 +116,7 @@ export class PortfolioImportService {
     private readonly partners: ReturnType<typeof partnersConfig>,
   ) {
     this.ttlMs = partners.mfcentral.importTtlMinutes * 60_000;
+    this.testMobileOverride = partners.mfcentral.testMobileOverride;
   }
 
   async start(cmd: {
@@ -153,13 +155,15 @@ export class PortfolioImportService {
       updatedAt: now,
     };
     // MF Central takes mobile OR email, never both; the verified phone is the investor's OTP channel.
+    // UAT: their test PANs only pair with their registered test mobile, so a non-production override replaces it.
     const contact = {
-      mobile: customer.phone,
-      email: customer.phone
-        ? undefined
-        : customer.emailVerifiedAt
-          ? customer.email
-          : undefined,
+      mobile: this.testMobileOverride ?? customer.phone,
+      email:
+        this.testMobileOverride || customer.phone
+          ? undefined
+          : customer.emailVerifiedAt
+            ? customer.email
+            : undefined,
     };
 
     let created: PortfolioImport;
@@ -190,6 +194,7 @@ export class PortfolioImportService {
         ...base,
         status: 'FAILED',
         failureCategory: 'provider_rejected',
+        lastError: vendorMessage(err) ?? err.vendorCode,
         completedAt: now,
       };
     }
@@ -208,6 +213,7 @@ export class PortfolioImportService {
             status: created.status,
             providerRequestId: created.providerRequestId,
             failureCategory: created.failureCategory,
+            lastError: created.lastError,
           },
         },
         tx,

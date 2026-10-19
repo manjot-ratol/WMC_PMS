@@ -23,6 +23,7 @@ describe('Phase 9 controllers (mocked services and guards)', () => {
     get: jest.fn(),
     skip: jest.fn(),
     portfolio: jest.fn(),
+    validateQr: jest.fn(),
   };
   const callback = { receive: jest.fn() };
   const asCustomer = {
@@ -243,6 +244,52 @@ describe('Phase 9 controllers (mocked services and guards)', () => {
       source: 'MFCENTRAL',
       next_screen: 'PORTFOLIO_IMPORT',
     });
+  });
+
+  it('QR upload (200) accepts base64 JSON or a multipart file and validates the body', async () => {
+    service.validateQr.mockResolvedValue({
+      importId: 'pi_1',
+      status: 'IMPORTED',
+      nextScreen: 'ASSETS_DASHBOARD',
+    });
+    const qr = 'A'.repeat(120);
+    const res = await request(app.getHttpServer())
+      .post(`${base}/portfolio-imports/pi_1/qr-validations`)
+      .set('Idempotency-Key', 'k-qr-1')
+      .send({ qr_code: qr })
+      .expect(200);
+    expect(res.body).toEqual({
+      import_id: 'pi_1',
+      status: 'IMPORTED',
+      next_screen: 'ASSETS_DASHBOARD',
+    });
+    expect(service.validateQr).toHaveBeenCalledWith({
+      applicationId: 'app_1',
+      customerId: 'cus_1',
+      importId: 'pi_1',
+      qrCode: qr,
+    });
+    // multipart variant: the PNG itself, base64-encoded by the backend
+    const png = Buffer.from('\x89PNG\r\n\x1a\n' + 'x'.repeat(200), 'latin1');
+    service.validateQr.mockClear();
+    await request(app.getHttpServer())
+      .post(`${base}/portfolio-imports/pi_1/qr-validations`)
+      .set('Idempotency-Key', 'k-qr-2')
+      .attach('qr_image', png, 'qr.png')
+      .expect(200);
+    expect(service.validateQr).toHaveBeenCalledWith(
+      expect.objectContaining({ qrCode: png.toString('base64') }),
+    );
+    await request(app.getHttpServer())
+      .post(`${base}/portfolio-imports/pi_1/qr-validations`)
+      .set('Idempotency-Key', 'k-qr-3')
+      .send({ qr_code: 'short' })
+      .expect(422);
+    await request(app.getHttpServer())
+      .post(`${base}/portfolio-imports/pi_1/qr-validations`)
+      .set('Idempotency-Key', 'k-qr-4')
+      .send({})
+      .expect(422);
   });
 
   it('callback accepts a form POST or GET without a session and redirects', async () => {
